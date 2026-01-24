@@ -1,0 +1,253 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#09090b] text-[#e4e4e7] font-inter antialiased selection:bg-blue-500/30 selection:text-blue-200;
+    background: linear-gradient(-45deg, #09090b, #111116, #18181b, #000000);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
+  }
+}
+
+/* Custom Scrollbar - Minimalist */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-zinc-800 rounded-full hover:bg-zinc-700 transition-colors;
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  @apply bg-zinc-900/60 backdrop-blur-2xl border border-white/10;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
+}
+
+.glass-card {
+  @apply bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/10 transition-all duration-500;
+}
+
+.glass-card:hover {
+  box-shadow: 0 0 30px rgba(59, 130, 246, 0.15);
+}
+
+/* Production-Ready Utilities */
+.panel-modern {
+  @apply glass-panel rounded-xl;
+}
+
+.input-modern {
+  @apply bg-black/20 backdrop-blur-md border border-white/10 text-white placeholder-zinc-500 focus:border-blue-500/80 focus:bg-black/40 focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 rounded-lg px-4 py-3 text-sm w-full outline-none transform focus:scale-[1.01];
+}
+
+.btn-primary {
+  @apply bg-white text-black font-bold px-7 py-3 rounded-lg hover:bg-zinc-200 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:scale-105 active:scale-95;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.4);
+}
+
+.btn-secondary {
+  @apply bg-white/5 backdrop-blur-md text-white border border-white/10 font-bold px-7 py-3 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95;
+}
+
+.btn-secondary:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Subtle Gradient Text for key headings */
+.text-gradient-minimal {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-white via-zinc-200 to-zinc-500 animate-pulse-slow;
+}
+
+/* Component Overrides */
+.card-hover-effect {
+  @apply transition-all duration-500 hover:scale-[1.03] hover:-translate-y-2 hover:shadow-2xl;
+}
+
+.card-hover-effect:hover {
+  box-shadow: 0 0 30px rgba(59, 130, 246, 0.2);
+}
+
+.heading-gradient {
+  @apply bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent;
+}
+
+/* Antigravity Typography */
+.heading-hero {
+  @apply font-inter font-extrabold tracking-tighter text-white;
+  letter-spacing: -0.04em;
+  /* Antigravity-style tight tracking */
+}
+
+
+/* --- Heavy Animations --- */
+
+/* Keyframes */
+@keyframes gradientBG {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-50px);
+    filter: blur(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-12px) rotate(1deg);
+  }
+}
+
+@keyframes pulseGlow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+    transform: scale(1);
+  }
+
+  50% {
+    box-shadow: 0 0 35px rgba(255, 255, 255, 0.4);
+    transform: scale(1.05);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+    filter: blur(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes pulseSlow {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Utility Animations */
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-slide-in {
+  animation: slideInRight 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2.5s infinite;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-pulse-slow {
+  animation: pulseSlow 4s ease-in-out infinite;
+}
+
+/* Stagger Logic */
+.stagger-container>*:nth-child(1) {
+  animation-delay: 100ms;
+}
+
+.stagger-container>*:nth-child(2) {
+  animation-delay: 200ms;
+}
+
+.stagger-container>*:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+.stagger-container>*:nth-child(4) {
+  animation-delay: 400ms;
+}
+
+.stagger-container>*:nth-child(5) {
+  animation-delay: 500ms;
+}
+
+.stagger-container>*:nth-child(6) {
+  animation-delay: 600ms;
+}
+
+.stagger-container>*:nth-child(7) {
+  animation-delay: 700ms;
+}
+
+.stagger-container>*:nth-child(8) {
+  animation-delay: 800ms;
+}
+
+.stagger-container>*:nth-child(9) {
+  animation-delay: 900ms;
+}
+
+.stagger-container>*:nth-child(10) {
+  animation-delay: 1000ms;
+}
