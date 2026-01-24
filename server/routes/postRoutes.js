@@ -17,36 +17,37 @@ cloudinary.config({
 
 router.get("/post", async (req, res) => {
     try {
-      const posts = await Post.find();
-       res.status(200).json({ success: true, data: posts });
+        const posts = await Post.find();
+        res.status(200).json({ success: true, data: posts });
     } catch (err) {
-      res.status(500).json({ success: false, message: 'Fetching posts failed, please try again' });
+        res.status(500).json({ success: false, message: 'Fetching posts failed, please try again' });
     }
-  });
+});
 
-router.post("/post", async (req,res)=> {
+router.post("/post", async (req, res) => {
     try {
-        const {name, prompt, model} = req.body
+        const { name, prompt, model } = req.body
         console.log("name, prompt, model", name, prompt, model)
         const photo = req.files.photoFile;
         console.log(photo)
-        const photoURL = await cloudinary.uploader.upload(photo.tempFilePath,{folder:process.env.FOLDER_NAME,resource_type : "auto" })
+        const photoURL = await cloudinary.uploader.upload(photo.tempFilePath, { folder: process.env.FOLDER_NAME, resource_type: "auto" })
         console.log("Cloudinary upload done")
         const newPost = await Post.create({
             name,
             prompt,
             model,
-            photo:photoURL.url
-        }) 
+            photo: photoURL.url
+        })
 
         return res.status(200).json({ success: true, data: newPost });
 
     } catch (error) {
         console.log("Error in /post", error)
         return res.status(500).json({
-            success:false,
+            success: false,
             message: error.message
         })
     }
 })
+
 export default router;

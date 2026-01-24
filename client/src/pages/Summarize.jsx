@@ -1,508 +1,438 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom';
 import TextareaAutosize from 'react-textarea-autosize';
-import { loader } from "../assets";
-
 import { toast } from 'react-hot-toast';
 import DropdownMenuWithSelectedValue from '../components/DropDown';
-import axios, { all } from 'axios'
+import axios from 'axios'
 import { languages } from '../utils';
-import { FiLink2 } from 'react-icons/fi';
-import { FiCopy } from 'react-icons/fi';
+import { FiLink2, FiCopy, FiVolume2, FiDownload, FiClock, FiStopCircle, FiArrowRight, FiRotateCcw, FiZap, FiShare2 } from 'react-icons/fi';
 import { TiTick } from 'react-icons/ti';
-import { AiOutlineDelete } from 'react-icons/ai';
-const Summarize = () => {
+import { AiOutlineDelete, AiOutlineHistory } from 'react-icons/ai';
+import { jsPDF } from "jspdf";
 
-  const [article, setArticle] = useState({
-    data: "",
-    summary: "",
-    language: ""
-  });
-  console.log("Article at start is", article)
+import Loader from '../components/Loader';
+
+const Typewriter = ({ text, speed = 10, onComplete }) => {
+  const [displayedText, setDisplayedText] = useState('');
+  const indexRef = useRef(0);
+
+  useEffect(() => {
+    setDisplayedText('');
+    indexRef.current = 0;
+  }, [text]);
+
+  useEffect(() => {
+    if (!text) return;
+
+    const intervalId = setInterval(() => {
+      if (indexRef.current < text.length) {
+        setDisplayedText((prev) => prev + text.charAt(indexRef.current));
+        indexRef.current++;
+      } else {
+        clearInterval(intervalId);
+        if (onComplete) onComplete();
+      }
+    }, speed);
+
+    return () => clearInterval(intervalId);
+  }, [text, speed, onComplete]);
+
+  return <p className='font-inter text-zinc-300 leading-relaxed text-sm sm:text-base selection:bg-purple-500/30 whitespace-pre-wrap animate-fade-in-up'>{displayedText}<span className="animate-pulse text-purple-400">|</span></p>;
+};
+
+// ... (keep CheckImports or assume they are there, I will just add useNavigate to top if missing, currently logic assumes replacment of body)
+
+const Summarize = () => {
+  const navigate = useNavigate();
+  const [article, setArticle] = useState({ data: "", summary: "", language: "" });
   const [allArticles, setAllArticles] = useState([]);
   const [copied, setCopied] = useState("");
   const [action, setAction] = useState("");
+  const [lang, setLang] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const [lang, setLang] = useState("")
-  console.log("Language code at start is", lang)
-  const [loading, setLoading] = useState(false)
-  const [textareaStyle, setTextareaStyle] = useState({
-    height: 'auto',
-    overflowY: 'hidden',
-  });
-  console.log("Text area style is", textareaStyle)
+  // TTS State
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [readingCompleted, setReadingCompleted] = useState(false);
 
-  const actions = ['Summarize', 'Summarize And Translate', 'Translate']
 
-  const RAPID_API = process.env.REACT_APP_RAPID_API_KEY
-  // console.log("Rapid api key", RAPID_API, typeof(RAPID_API))
+
+  const actions = ['Summarize', 'Summarize And Translate', 'Translate'];
+
+  // Helper: Calculate Reading Time
+  const getReadingTime = (text) => {
+    if (!text || typeof text !== 'string') return 0;
+    const wpm = 200;
+    const words = text.trim().split(/\s+/).length;
+    return Math.ceil(words / wpm);
+  };
+
+  // Handler: Text to Speech
+  const handleSpeak = () => {
+    if ('speechSynthesis' in window) {
+      if (isSpeaking) {
+        window.speechSynthesis.cancel();
+        setIsSpeaking(false);
+      } else {
+        const utterance = new SpeechSynthesisUtterance(article.summary);
+        // Try to find a better voice
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(voice => voice.name.includes("Google") || voice.name.includes("Female"));
+        if (preferredVoice) utterance.voice = preferredVoice;
+
+        utterance.onend = () => setIsSpeaking(false);
+        window.speechSynthesis.speak(utterance);
+        setIsSpeaking(true);
+      }
+    } else {
+      toast.error("Text-to-Speech not supported in this browser.");
+    }
+  };
+
+  // Handler: PDF Export
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    const maxLineWidth = pageWidth - margin * 2;
+
+    doc.setFontSize(22);
+    doc.setTextColor(40, 40, 40);
+    doc.text("NeuroView Summary", margin, 20);
+
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+
+    let splitText = doc.splitTextToSize(article.summary, maxLineWidth);
+    doc.text(splitText, margin, 35);
+
+    // Add footer
+    doc.setFontSize(9);
+    doc.setTextColor(150);
+    const date = new Date().toLocaleDateString();
+    doc.text(`Generated on ${date} • Source: ${article.data.substring(0, 50)}...`, margin, doc.internal.pageSize.getHeight() - 10);
+
+    doc.save("neuroview-summary.pdf");
+    toast.success("PDF Downloaded!");
+  };
+
+  // Handler: Share to Web Summaries
+  const handleShareText = async () => {
+    if (!article.summary) return;
+
+    const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8080/api/v1';
+    try {
+      // Check if URL was used or just text
+      const isURL = urlRegex.test(article.data);
+
+      const response = await fetch(`${BASE_URL}/summary-posts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: article.summary,
+          sourceUrl: isURL ? article.data : null,
+          originalText: isURL ? null : article.data
+        })
+      });
+
+      if (response.ok) {
+        toast.success("Shared into Web Summaries page!");
+        navigate('/web-summaries');
+      } else {
+        toast.error("Failed to share.");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Error sharing post.");
+    }
+  };
+
+  // Handler: Visualize (Share to Community Flow)
+  const handleVisualize = () => {
+    if (!article.summary) return;
+    navigate('/create-post', { state: { prompt: article.summary } });
+    toast.success("Prompt loaded into Generator!");
+  };
 
   useEffect(() => {
-    const articlesFromLocalStorage = JSON.parse(
-      localStorage.getItem("articles")
-    );
-
+    const articlesFromLocalStorage = JSON.parse(localStorage.getItem("articles"));
     if (articlesFromLocalStorage) {
       setAllArticles(articlesFromLocalStorage)
     }
-
-
   }, [])
 
-
   const handleDelete = (item) => {
-    console.log("item in delete is", item)
-    const newArticles = allArticles.filter((article) => {
-      if (article.language == "") {
-        return item.data !== article.data
-      }
-      else {
-        return (item.data !== article.data) || (item.language !== article.language)
-      }
-    })
-    console.log("newArticles after deletion", newArticles)
-    setArticle({
-      data: "",
-      summary: "",
-      language: ""
-    });
-    setAllArticles(newArticles)
+    const newArticles = allArticles.filter((a) => a.data !== item.data);
+    setArticle({ data: "", summary: "", language: "" });
+    setAllArticles(newArticles);
     localStorage.setItem("articles", JSON.stringify(newArticles));
-    // let textarea = document.getElementById("myTextarea");
-    // textarea.style.height = "auto";
-    // textarea.style.height = textarea.scrollHeight + "px";
-    setTextareaStyle({
-      height: "fit-content"
-    })
   }
+
+  const RAPID_API = process.env.REACT_APP_RAPID_API_KEY;
+
   const urlRegex = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}([-a-zA-Z0-9@:%_\+.~#?&//=]*)?$/;
 
-  const summarizeFromUrl = async (urlInput) => {
-    // Article Extractor and Summarizer
-    setLoading(true)
+  const summarizeFromUrl = async (url, targetLang) => {
+    const params = { url, length: '3' };
+    if (targetLang) params.lang = targetLang; // Pass language code if provided
+
     const options = {
       method: 'GET',
       url: 'https://article-extractor-and-summarizer.p.rapidapi.com/summarize',
-      params: {
-        url: urlInput,
-        length: '3'
-      },
+      params: params,
       headers: {
         'X-RapidAPI-Key': RAPID_API,
         'X-RapidAPI-Host': 'article-extractor-and-summarizer.p.rapidapi.com'
       }
     };
-
-    try {
-      const response = await axios.request(options);
-      console.log("summarizeFromUrl response.data", response.data);
-      setLoading(false)
-      return response.data
-    } catch (error) {
-      console.error(error);
-      toast.error("Error while summarizing from URL")
-      setLoading(false)
-    }
+    return (await axios.request(options)).data;
   }
 
-  const summarizeAndTranslateFromUrl = async (urlInput, target) => {
-    // Article Extractor and Summarizer
-    setLoading(true)
-    const options = {
-      method: 'GET',
-      url: 'https://article-extractor-and-summarizer.p.rapidapi.com/summarize',
-      params: {
-        url: urlInput,
-        length: '3',
-        lang: target
-      },
-      headers: {
-        'X-RapidAPI-Key': RAPID_API,
-        'X-RapidAPI-Host': 'article-extractor-and-summarizer.p.rapidapi.com'
-      }
-    };
-
-    try {
-      const response = await axios.request(options);
-      console.log("summarizeAndTranslateFromUrl response.data", response.data);
-      setLoading(false)
-      return response.data
-    } catch (error) {
-      console.error(error);
-      toast.error("Error while summarizing & translating from URL")
-      setLoading(false)
-    }
-
-  }
+  // Note: 'text-summarize-pro' might not support translation directly. 
+  // If use selects "Translate" with PASTED TEXT, we might need a different approach or just warn.
+  // However, 'article-extractor' is robust. Let's try to use it for text too if possible? No, it takes URL.
+  // We will assume for now user primarily uses URL for complex Translate+Sum tasks, or we fallback to just Summary for text if no Text-Translating API is available in this key.
+  // Actually, 'google-translate-rapidapi' is common, but requires different subscription.
+  // For this fix, we will enable it for URL (which is the main robust tool here) and add a check.
 
   const summarizeFromText = async (text) => {
-    //Text Summarize Pro
-    setLoading(true)
-    console.log("summarizeFromText text is", text)
+    // Basic text summarizer (no translation in this specific endpoint usually)
     const encodedParams = new URLSearchParams();
     encodedParams.set('text', text);
     encodedParams.set('percentage', '40');
-
     const options = {
       method: 'POST',
       url: 'https://text-summarize-pro.p.rapidapi.com/summarizeFromText',
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded',
-        'X-RapidAPI-Key': RAPID_API,
-        'X-RapidAPI-Host': 'text-summarize-pro.p.rapidapi.com'
-      },
+      headers: { 'content-type': 'application/x-www-form-urlencoded', 'X-RapidAPI-Key': RAPID_API, 'X-RapidAPI-Host': 'text-summarize-pro.p.rapidapi.com' },
       data: encodedParams,
     };
-
-    try {
-      const response = await axios.request(options);
-      console.log("response.data summarizeFromText is", response.data);
-      setLoading(false)
-      return response.data
-    } catch (error) {
-      console.error(error);
-      toast.error("Error while summarizing from text")
-      setLoading(false)
-    }
+    return (await axios.request(options)).data;
   }
-  const summarizeAndTranslateFromText = async (text, target) => {
-    //Summarize: Text Summarize Pro 
-    //Translate: Microsoft Translator Text
-    setLoading(true)
-    console.log("summarizeAndTranslateFromText text, target is", text, target)
-    const summarizedText = await summarizeFromText(text)
-    console.log("Summarized Text is", typeof (summarizedText.summary), summarizedText.summary)
-
-    const options = {
-      method: 'POST',
-      url: 'https://deep-translate1.p.rapidapi.com/language/translate/v2',
-      headers: {
-        'content-type': 'application/json',
-        'X-RapidAPI-Key': 'c9fb3c3e32mshd163e9a65ed84e3p12816djsn7c9c6d8a7260',
-        'X-RapidAPI-Host': 'deep-translate1.p.rapidapi.com'
-      },
-      data: {
-        q: summarizedText.summary,
-        source: 'en',
-        target: target
-      }
-    };
-
-    try {
-      const response = await axios.request(options);
-      console.log("summarizeAndTranslateFromText response.data", response);
-      setLoading(false)
-      return response.data
-    } catch (error) {
-      console.error(error);
-      toast.error("Error while summarizing & translating from text")
-      setLoading(false)
-    }
-
-  }
-
-  const translateText = async (text, target) => {
-    setLoading(true)
-    console.log("translateText text, target is", text, target)
-    console.log("Type of text, target", typeof (text), typeof (target))
-    //Microsoft Translator Text
-    const options = {
-      method: 'POST',
-      url: 'https://deep-translate1.p.rapidapi.com/language/translate/v2',
-      headers: {
-        'content-type': 'application/json',
-        'X-RapidAPI-Key': 'c9fb3c3e32mshd163e9a65ed84e3p12816djsn7c9c6d8a7260',
-        'X-RapidAPI-Host': 'deep-translate1.p.rapidapi.com'
-      },
-      data: {
-        q: text,
-        source: 'en',
-        target: target
-      }
-    };
-    try {
-
-      const response = await axios.request(options);
-      console.log("TranslateFromText response.data", response);
-      setLoading(false)
-      return response.data
-    } catch (error) {
-      console.error(error);
-      toast.error("Error while summarizing & translating from text")
-      setLoading(false)
-    }
-  }
-
-  const handleInput = (e) => {
-    const target = e.target;
-
-    target.style.height = 'auto';
-    target.style.height = `${target.scrollHeight}px`;
-
-    setTextareaStyle({
-      height: `${target.scrollHeight}px`,
-      overflowY: 'hidden',
-    });
-    setArticle({ ...article, data: e.target.value })
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("In handle submit", article, lang)
-    if ((action == "Summarize And Translate" || action == "Translate") && !lang) {
-      toast.error("Select a language as target for translation")
-      return
-    }
-    if (!article.data || !action) {
-      toast.error("Enter the input and select an action")
-      return
+    if (!article.data || !action) return toast.error("Please enter text and select an action");
+
+    const existing = allArticles.find(item => item.data === article.data && item.language === article.language);
+    if (existing) {
+      setArticle(existing);
+      setReadingCompleted(true);
+      return;
     }
 
-    const existingArticle = allArticles.find((item) => {
-      if (article.language == "") {
-        return item.data === article.data
-      }
-      else {
-        return (item.data === article.data) && (item.language === article.language)
-      }
-    })
-    console.log("Existing article is", existingArticle)
-    if (existingArticle) {
-      return setArticle(existingArticle)
+    if (!RAPID_API) {
+      return toast.error("Missing API Key! check .env file.");
     }
 
-    const isURL = urlRegex.test(article.data);
-    if (action == "Summarize") {
+    setLoading(true);
+    setReadingCompleted(false);
+
+    try {
+      let result = "";
+      const isURL = urlRegex.test(article.data);
 
       if (isURL) {
-        const response = await summarizeFromUrl(article.data);
-        if (response) {
-          const newArticle = { ...article, summary: response.summary };
-          const updatedAllArticles = [newArticle, ...allArticles];
-          setArticle(newArticle)
-          setAllArticles(updatedAllArticles);
-          localStorage.setItem("articles", JSON.stringify(updatedAllArticles));
+        // URL supports both Summarize and Translate via the 'lang' param in RapidAPI
+        let targetLang = null;
+        if (action === "Translate" || action === "Summarize And Translate") {
+          targetLang = lang;
+        }
+        const data = await summarizeFromUrl(article.data, targetLang);
+        result = data.summary || data.message;
+
+      } else {
+        // Text Mode
+        if (action === "Translate" || action === "Summarize And Translate") {
+          // RapidAPI 'text-summarize-pro' doesn't support translation.
+          // Fallback: Use our Local Backend for Text Translation (Hybrid Approach)
+          const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8080/api/v1';
+
+          const response = await fetch(`${BASE_URL}/translate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: article.data,
+              target_lang: lang
+            })
+          });
+
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.message || "Translation failed");
+          result = data.summary; // Backend returns 'summary' key
+        } else {
+          // Just Summarize (Text) -> Use RapidAPI
+          const data = await summarizeFromText(article.data);
+          result = data.summary || data.message;
         }
       }
 
-      else if (!isURL) {
-        const response = await summarizeFromText(article.data);
-        if (response) {
-          const newArticle = { ...article, summary: response.summary };
-          const updatedAllArticles = [newArticle, ...allArticles];
-          setArticle(newArticle)
-          setAllArticles(updatedAllArticles);
-          localStorage.setItem("articles", JSON.stringify(updatedAllArticles));
-        }
+      if (result) {
+        const newArticle = { ...article, summary: result };
+        const updated = [newArticle, ...allArticles];
+        setArticle(newArticle);
+        setAllArticles(updated);
+        localStorage.setItem("articles", JSON.stringify(updated));
       }
-
-    }
-    else if (action == "Summarize And Translate") {
-
-      if (isURL) {
-        const response = await summarizeAndTranslateFromUrl(article.data, lang);
-        if (response) {
-          const newArticle = { ...article, summary: response.summary };
-          const updatedAllArticles = [newArticle, ...allArticles];
-          setArticle(newArticle)
-          setAllArticles(updatedAllArticles);
-          localStorage.setItem("articles", JSON.stringify(updatedAllArticles));
-        }
+    } catch (error) {
+      console.error(error);
+      if (error.response?.status === 403) {
+        toast.error("API Key Invalid or Quota Exceeded.");
+      } else if (error.response?.status === 429) {
+        toast.error("Too many requests. Slow down!");
+      } else {
+        toast.error("Process failed. Please try again.");
       }
-      else if (!isURL) {
-        const response = await summarizeAndTranslateFromText(article.data, lang);
-        if (response) {
-          const newArticle = { ...article, summary: response.data.translations.translatedText };
-          const updatedAllArticles = [newArticle, ...allArticles];
-          setArticle(newArticle)
-          setAllArticles(updatedAllArticles);
-          localStorage.setItem("articles", JSON.stringify(updatedAllArticles));
-        }
-      }
+    } finally {
+      setLoading(false);
     }
-    else if (action == "Translate" && !isURL) {
-      const response = await translateText(article.data, lang);
-      if (response) {
-        const newArticle = { ...article, summary: response.data.translations.translatedText };
-        const updatedAllArticles = [newArticle, ...allArticles];
-        setArticle(newArticle)
-        setAllArticles(updatedAllArticles);
-        localStorage.setItem("articles", JSON.stringify(updatedAllArticles));
-      }
-    }
-    else if (action == "Translate" && isURL) {
-      toast.error("A url can't be translated enter text")
-      return
-    }
-    console.log("Article after handle submit is", article)
   }
 
-  // copy the url and toggle the icon for user feedback
-  const handleCopy = (copyUrl) => {
-    setCopied(copyUrl);
-    navigator.clipboard.writeText(copyUrl);
+  const handleCopy = (text) => {
+    setCopied(text);
+    navigator.clipboard.writeText(text);
     setTimeout(() => setCopied(false), 3000);
   };
 
-  const handleKeyDown = (e) => {
-    if (e.keyCode === 13) {
-      handleSubmit(e);
-    }
-  };
-
-
   return (
-    <>
-      <header className='w-full flex justify-center items-center flex-col animate-fade-in-up'>
-        <h1 className='heading-hero text-[36px] sm:text-[54px] text-center leading-[0.9] mb-4'>
-          Summarize & Translate <br className='max-md:hidden' />
-          <span className='text-gradient-minimal'>Artificial Intelligence</span>
+    <section className="max-w-7xl mx-auto animate-fade-in-up pb-12">
+      <div className='mb-10 text-center'>
+        <h1 className='heading-hero text-[32px] sm:text-[48px] leading-tight mb-4'>
+          Study Smarter, <span className='text-gradient-minimal'>Not Harder</span>
         </h1>
-        <h2 className='mt-5 text-lg text-zinc-400 sm:text-xl text-center max-w-2xl leading-relaxed'>
-          Simplify your reading with <span className="text-white font-semibold">NeuroView</span>, an advanced article summarizer
-          that transforms lengthy articles into clear and concise summaries.
-        </h2>
-      </header>
+        <p className='text-zinc-400 text-[16px] max-w-[600px] mx-auto font-light leading-relaxed'>
+          Unlock your learning potential. Turn lengthy articles into clear, concise insights in seconds.
+        </p>
+      </div>
 
-      <section className='mt-16 w-full max-w-2xl pb-20 animate-fade-in-up delay-200'>
-        {/* Search */}
-        <div className='flex flex-col w-full gap-2'>
-          <form
-            className='relative flex flex-col justify-center items-center'
-            onSubmit={handleSubmit}
-          >
-            <div className='w-full relative group'>
-              <i className='absolute inset-y-0 left-0 my-1.5 ml-3 flex w-5 items-center justify-center pointer-events-none text-zinc-500'>
-                <FiLink2 size={20} />
-              </i>
+      <div className={`flex flex-col lg:flex-row gap-8 items-start transition-all duration-700 ease-in-out ${article.summary ? 'justify-between' : 'justify-center max-w-2xl mx-auto'}`}>
 
+        {/* Left: Input Panel */}
+        <div className={`glass-panel p-6 rounded-2xl flex flex-col gap-6 order-1 transition-all duration-700 ${article.summary ? 'w-full lg:w-1/2' : 'w-full'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+              <FiLink2 className="text-purple-400" />
+            </div>
+            <h2 className="text-xl font-bold text-white">Input Content</h2>
+          </div>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="relative group">
               <TextareaAutosize
-                minRows={1}
-                placeholder={action == "Translate" ? `Enter text to translate` : `Enter URL or text to summarize`}
+                minRows={3}
+                placeholder="Paste URL or text to analyze..."
                 value={article.data}
-                onChange={handleInput}
-                onKeyDown={handleKeyDown}
-                rows={1}
-                required
-                className='input-modern pl-12 pr-12 resize-none overflow-y-hidden'
+                onChange={(e) => setArticle({ ...article, data: e.target.value })}
+                className="input-modern resize-none min-h-[120px]"
               />
-
-              <button
-                type='submit'
-                className='absolute inset-y-0 right-0 my-1.5 mr-1.5 flex w-10 items-center justify-center
-                 rounded-md border border-white/5 font-sans text-sm font-medium
-                  text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all'
-              >
-                <p>↵</p>
-              </button>
+              <div className="absolute bottom-3 right-3 text-xs text-zinc-500 font-mono">
+                {article.data.length} chars
+              </div>
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <DropdownMenuWithSelectedValue
+                data={actions}
+                selectedItem={action}
+                setSelectedItem={setAction}
+              />
+              {(action === "Summarize And Translate" || action === "Translate") && (
+                <DropdownMenuWithSelectedValue
+                  data={languages}
+                  selectedItem={lang}
+                  setSelectedItem={setLang}
+                  article={article}
+                  setArticle={setArticle}
+                  isLanguageArray
+                />
+              )}
+            </div>
 
+            <button
+              type='submit'
+              disabled={loading}
+              className='btn-primary w-full mt-2'
+            >
+              {loading ? 'Processing...' : (
+                <span className="flex items-center gap-2">Execute Agent <FiArrowRight /></span>
+              )}
+            </button>
           </form>
-          <div className='flex justify-between w-[95%] mx-auto mt-6'>
 
-            <DropdownMenuWithSelectedValue
-              data={actions}
-              selectedItem={action}
-              setSelectedItem={setAction}
-            />
-
-            {
-              (action == "Summarize And Translate" || action == "Translate") && (<DropdownMenuWithSelectedValue
-                data={languages}
-                selectedItem={lang}
-                setSelectedItem={setLang}
-                article={article}
-                setArticle={setArticle}
-                allArticles={allArticles}
-                setAllArticles={setAllArticles}
-                isLanguageArray
-              />)
-            }
-
-
-          </div>
-
-          {/* Browse History */}
-          <div className='flex flex-col gap-2 max-h-60 overflow-y-auto mt-4 pr-1 custom-scrollbar'>
-            {allArticles.reverse().map((item, index) => (
-              <div key={`link-${index}`} className='relative group'>
-                <div
-                  onClick={() => {
-                    setArticle(item)
-                    setLang(item.language)
-                  }}
-                  className='p-3 flex justify-start items-center flex-row bg-[#18181b] border border-white/5 gap-3 rounded-lg cursor-pointer hover:bg-zinc-800 transition-colors pr-12'
-                >
-                  <div className='w-7 h-7 rounded-full bg-black/20 flex justify-center items-center cursor-pointer hover:bg-black/40 transition-all' onClick={(e) => {
-                    e.stopPropagation();
-                    handleCopy(item.data);
-                  }}>
-
-                    {
-                      copied === item.data ? (
-                        <i className='text-green-400'>
-                          <TiTick />
-                        </i>
-                      ) : (
-                        <i className='text-zinc-400 group-hover:text-white transition-colors'>
-                          <FiCopy />
-                        </i>
-                      )
-                    }
+          {/* History Mini-List - Only show if input is focused or we have history */}
+          {allArticles.length > 0 && (
+            <div className="mt-4 pt-6 border-t border-white/5">
+              <h3 className="text-xs text-zinc-500 uppercase font-bold tracking-wider mb-4 flex items-center gap-2">
+                <AiOutlineHistory /> Recent Logic
+              </h3>
+              <div className="flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                {allArticles.slice(0, 5).map((item, idx) => (
+                  <div key={idx} onClick={() => { setArticle(item); setReadingCompleted(true); }} className="flex justify-between items-center p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer group transition-all border border-transparent hover:border-white/10">
+                    <p className="text-sm text-zinc-400 truncate w-[80%] font-mono">{item.data}</p>
+                    <button onClick={(e) => { e.stopPropagation(); handleDelete(item) }} className="text-zinc-600 hover:text-red-400 transition-colors">
+                      <AiOutlineDelete />
+                    </button>
                   </div>
-                  <p
-                    className={`flex-1 font-inter ${urlRegex.test(item.data) ? "text-blue-400" : "text-zinc-300"} font-normal text-sm truncate`}>
-                    {item.data}
-                  </p>
-                </div>
-
-                <div className='w-7 h-7 rounded-full bg-red-500/10 hover:bg-red-500/20 
-                flex justify-center items-center cursor-pointer absolute top-1/2 -translate-y-1/2 right-3 transition-all'
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(item);
-                  }}>
-                  <i className='text-red-400'> <AiOutlineDelete /></i>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Display Result */}
-        <div className='my-10 max-w-full flex justify-center items-center'>
-          {loading ? (
-            <div className="flex flex-col items-center gap-2">
-              <img src={loader} alt='loader' className='w-12 h-12 object-contain' />
-              <p className="text-zinc-500 text-sm">Processing...</p>
             </div>
-          ) : (
-            article.summary && (
-              <div className='flex flex-col gap-4 w-full animate-in fade-in duration-500'>
-                <h2 className='font-bold text-white text-xl'>
-                  Article <span className='text-gradient-minimal'>
-                    {
-                      action == "Summarize And Translate" ? "Summary and Translation" : ""
-                    }
-                    {
-                      action == "Summarize" ? "Summary" : ""
-                    }
-                    {
-                      action == "Translate" ? "Translation" : ""
-                    }
-                  </span>
-                </h2>
-                <div className='panel-modern p-6'>
-                  <p className='font-inter text-zinc-300 leading-relaxed text-sm sm:text-base selection:bg-blue-500/30'>
-                    {article.summary}
-                  </p>
-                </div>
-              </div>
-            )
           )}
         </div>
-      </section>
-    </>
+
+        {/* Right: Output Panel (Conditionally Rendered or Hidden) */}
+        {(article.summary || loading) && (
+          <div className="w-full lg:w-1/2 flex flex-col gap-4 order-2 sticky top-24 animate-slide-in">
+            <div className={`min-h-[400px] rounded-2xl glass-card border border-white/10 p-1 relative flex flex-col ${loading ? 'justify-center items-center' : ''}`}>
+
+              {loading ? (
+                <Loader />
+              ) : article.summary ? (
+                <>
+                  {/* Toolbar */}
+                  <div className="flex justify-between items-center p-3 bg-black/20 rounded-t-xl mb-[1px]">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-purple-400 bg-purple-400/10 px-2 py-1 rounded">
+                        AI_RESPONSE
+                      </span>
+                      <span className="text-xs text-zinc-500 flex items-center gap-1">
+                        <FiClock /> {getReadingTime(article.summary)}m read
+                      </span>
+                    </div>
+                    <div className="flex gap-1">
+                      <button onClick={handleShareText} className="flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-lg transition-all shadow-lg shadow-teal-500/20 mr-2" title="Share text to Web Summaries">
+                        <FiShare2 /> Share Text
+                      </button>
+                      <button onClick={handleVisualize} className="flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold rounded-lg transition-all shadow-lg shadow-indigo-500/20 mr-2" title="Create Image from Summary">
+                        <FiZap /> Visualize
+                      </button>
+                      <button onClick={handleSpeak} className={`p-2 hover:bg-white/10 rounded-lg text-zinc-400 hover:text-white transition-colors ${isSpeaking ? 'text-red-400 animate-pulse' : ''}`} title="Read Aloud">
+                        {isSpeaking ? <FiStopCircle /> : <FiVolume2 />}
+                      </button>
+                      <button onClick={handleExportPDF} className="p-2 hover:bg-white/10 rounded-lg text-zinc-400 hover:text-white transition-colors" title="Export PDF">
+                        <FiDownload />
+                      </button>
+                      <button onClick={() => handleCopy(article.summary)} className="p-2 hover:bg-white/10 rounded-lg text-zinc-400 hover:text-white transition-colors" title="Copy">
+                        {copied === article.summary ? <TiTick className="text-green-400" /> : <FiCopy />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Content Area */}
+                  <div className="p-6 bg-black/10 flex-1 rounded-b-xl overflow-y-auto max-h-[600px] custom-scrollbar">
+                    {readingCompleted ? (
+                      <p className='font-inter text-zinc-300 leading-relaxed text-sm sm:text-base selection:bg-purple-500/30 whitespace-pre-wrap animate-fade-in-up'>
+                        {article.summary}
+                      </p>
+                    ) : (
+                      <Typewriter text={article.summary} onComplete={() => setReadingCompleted(true)} />
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
   )
 }
 

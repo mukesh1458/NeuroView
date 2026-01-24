@@ -7,6 +7,9 @@ import postRoutes from './routes/postRoutes.js'
 import fileUpload from 'express-fileupload';
 
 import dalleRoutes from './routes/dalleRoutes.js'
+import summaryRoutes from './routes/summaryRoutes.js'
+import summaryPostRoutes from './routes/summaryPostRoutes.js'
+
 dotenv.config();
 const PORT = process.env.PORT || 8080;
 const app = express();
@@ -25,6 +28,8 @@ app.use(
 
 app.use('/api/v1/', postRoutes);
 app.use('/api/v1/', dalleRoutes);
+app.use('/api/v1/', summaryRoutes);
+app.use('/api/v1/', summaryPostRoutes);
 
 app.get('/', async (req, res) => {
   res.status(200).json({
