@@ -24,20 +24,32 @@ router.get("/post", async (req, res) => {
     }
 });
 
-router.post("/post", async (req, res) => {
+import verifyToken from '../middleware/auth.js';
+
+// ... (imports)
+
+// Protected Route: Verify Token logic inside or as middleware
+// Note: verifyToken middleware adds req.user if valid. To support both guests and users, we can make it optional or strict.
+// Given the requirement "Users have their own Profile Page", let's attach user if present.
+// For now, let's keep it simple: If header exists, verify it.
+
+router.post("/post", verifyToken, async (req, res) => {
     try {
-        const { name, prompt, model } = req.body
-        console.log("name, prompt, model", name, prompt, model)
+        const { name, prompt, model, parentId, colors } = req.body;
+        console.log("Creating Post:", { name, prompt, model, parentId });
+
         const photo = req.files.photoFile;
-        console.log(photo)
-        const photoURL = await cloudinary.uploader.upload(photo.tempFilePath, { folder: process.env.FOLDER_NAME, resource_type: "auto" })
-        console.log("Cloudinary upload done")
+        const photoURL = await cloudinary.uploader.upload(photo.tempFilePath, { folder: process.env.FOLDER_NAME, resource_type: "auto" });
+
         const newPost = await Post.create({
             name,
             prompt,
             model,
-            photo: photoURL.url
-        })
+            photo: photoURL.url,
+            user: req.user ? req.user.id : null, // Attached from verifyToken
+            parentId: parentId || null,
+            colors: colors ? JSON.parse(colors) : [] // FormData sends arrays as strings
+        });
 
         return res.status(200).json({ success: true, data: newPost });
 

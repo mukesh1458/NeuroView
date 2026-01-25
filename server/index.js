@@ -10,6 +10,8 @@ import dalleRoutes from './routes/dalleRoutes.js'
 import summaryRoutes from './routes/summaryRoutes.js'
 import summaryPostRoutes from './routes/summaryPostRoutes.js'
 
+import authRoutes from './routes/authRoutes.js'
+
 dotenv.config();
 const PORT = process.env.PORT || 8080;
 const app = express();
@@ -26,10 +28,16 @@ app.use(
   })
 )
 
-app.use('/api/v1/', postRoutes);
-app.use('/api/v1/', dalleRoutes);
-app.use('/api/v1/', summaryRoutes);
-app.use('/api/v1/', summaryPostRoutes);
+import collectionRoutes from './routes/collectionRoutes.js';
+
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/collections', collectionRoutes); // Register Collection Routes
+
+// Legacy routes define their own subpaths (e.g., router.get('/post'))
+app.use('/api/v1', postRoutes);
+app.use('/api/v1', dalleRoutes);
+app.use('/api/v1', summaryRoutes);
+app.use('/api/v1', summaryPostRoutes);
 
 app.get('/', async (req, res) => {
   res.status(200).json({

@@ -69,6 +69,20 @@ We use a smart hybrid system to give you the best features:
 *   **Backend**: Saves the summary text into a specialized **MongoDB Collection**.
 *   **Web Summaries Page**: Fetches these text clips so everyone can read them.
 
+### 4. Advanced Creative Tools (2026 Update)
+*   **Remix System ⚡**:
+    *   Found a cool image? Click the **Lightning Bolt**.
+    *   The system loads its prompt and settings.
+    *   You tweak it (e.g., "Cyberpunk" -> "Steampunk").
+    *   The new image is linked to the original Parent!
+*   **Auto-Palette 🎨**:
+    *   Every time you generate art, AI extracts the **Top 5 Colors**.
+    *   Great for designers looking for color schemes.
+*   **Mood Boards 📂**:
+    *   Don't just scroll past. Click the **Bookmark** icon.
+    *   Create a Board (e.g., "Design Ideas").
+    *   Save posts to organize your inspiration.
+
 ---
 
 ## Understanding Cloud Services

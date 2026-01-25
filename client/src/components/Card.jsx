@@ -6,29 +6,23 @@ import { FaHeart } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
-const Card = ({ _id, name, prompt, model, photo, openLightbox }) => {
-  const navigate = useNavigate();
-  const [isBookmarked, setIsBookmarked] = useState(false);
+import CollectionModal from './CollectionModal';
 
-  // Check if bookmarked on load
-  useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('savedPosts') || '[]');
-    setIsBookmarked(saved.some(p => p._id === _id));
-  }, [_id]);
+const Card = ({ _id, name, prompt, model, photo, openLightbox, parentId, colors, user }) => {
+  const navigate = useNavigate();
+  const [showCollectionModal, setShowCollectionModal] = useState(false);
+
+  // Safe helpers
+  const safeName = name || "Anonymous";
+  const safeInitial = safeName.length > 0 ? safeName[0].toUpperCase() : "?";
+  const safeColors = Array.isArray(colors) ? colors : [];
 
   const handleBookmark = (e) => {
     e.stopPropagation();
-    const saved = JSON.parse(localStorage.getItem('savedPosts') || '[]');
-
-    if (isBookmarked) {
-      const newSaved = saved.filter(p => p._id !== _id);
-      localStorage.setItem('savedPosts', JSON.stringify(newSaved));
-      setIsBookmarked(false);
-      toast.success("Removed from collection");
+    if (user) {
+      setShowCollectionModal(true);
     } else {
-      localStorage.setItem('savedPosts', JSON.stringify([...saved, { _id, name, prompt, model, photo }]));
-      setIsBookmarked(true);
-      toast.success("Saved to collection");
+      toast.error("Please login to save posts");
     }
   };
 
@@ -40,7 +34,7 @@ const Card = ({ _id, name, prompt, model, photo, openLightbox }) => {
 
   const handleRemix = (e) => {
     e.stopPropagation();
-    navigate('/create-post', { state: { prompt, model } });
+    navigate('/create-post', { state: { prompt, model, parentId: _id } });
   };
 
   const handleShare = (e) => {
@@ -64,18 +58,42 @@ const Card = ({ _id, name, prompt, model, photo, openLightbox }) => {
       <div className="group-hover:flex flex-col max-h-[94.5%] hidden absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-md m-2 p-4 rounded-lg border border-white/10 animate-fade-in-up">
 
         {/* Prompt Text */}
-        <p className="text-zinc-200 text-sm overflow-y-auto prompt leading-relaxed mb-3 scrollbar-thin scrollbar-thumb-zinc-600 max-h-24">
-          {prompt}
+        <div className="flex justify-between items-start">
+          <p className="text-zinc-200 text-sm overflow-y-auto prompt leading-relaxed mb-3 scrollbar-thin scrollbar-thumb-zinc-600 max-h-24 flex-1">
+            {prompt}
+          </p>
           <button onClick={handleCopy} className="ml-2 text-zinc-400 hover:text-white transition-colors" title="Copy Prompt">
-            <FiCopy className="inline w-3 h-3" />
+            <FiCopy className="block w-3 h-3" />
           </button>
-        </p>
+        </div>
+
+        {/* Remix Lineage */}
+        {parentId && (
+          <div className="mb-3 flex items-center gap-1">
+            <FiZap className="w-3 h-3 text-cyan-400" />
+            <span className="text-[10px] text-cyan-300 font-medium uppercase tracking-wider">Remixed</span>
+          </div>
+        )}
+
+        {/* Auto-Palette */}
+        {safeColors.length > 0 && (
+          <div className="flex gap-1 mb-3">
+            {safeColors.slice(0, 5).map((color, idx) => (
+              <div
+                key={idx}
+                className="w-3 h-3 rounded-full border border-white/20 shadow-sm"
+                style={{ backgroundColor: color }}
+                title={color}
+              ></div>
+            ))}
+          </div>
+        )}
 
         {/* User Info & Actions */}
         <div className="flex justify-between items-center gap-2 mt-auto">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-sm object-cover bg-zinc-800 flex justify-center items-center text-white text-xs font-bold border border-white/10">
-              {name[0]}
+              {safeInitial}
             </div>
             <div className="flex flex-col">
               <p className="text-white text-sm font-medium leading-none">{name}</p>
@@ -86,8 +104,8 @@ const Card = ({ _id, name, prompt, model, photo, openLightbox }) => {
           {/* Action Buttons */}
           <div className="flex items-center gap-1">
             {/* Bookmark */}
-            <button type="button" onClick={handleBookmark} className="p-2 hover:bg-white/10 rounded-full transition-colors" title={isBookmarked ? "Unsave" : "Save"}>
-              <FiBookmark className={`w-4 h-4 ${isBookmarked ? 'text-yellow-400 fill-yellow-400' : 'text-white'}`} />
+            <button type="button" onClick={handleBookmark} className="p-2 hover:bg-white/10 rounded-full transition-colors" title="Save to Board">
+              <FiBookmark className="w-4 h-4 text-white group-hover:text-cyan-400 transition-colors" />
             </button>
 
             {/* Remix */}
@@ -107,6 +125,13 @@ const Card = ({ _id, name, prompt, model, photo, openLightbox }) => {
           </div>
         </div>
       </div>
+      <CollectionModal
+        isOpen={showCollectionModal}
+        onClose={() => setShowCollectionModal(false)}
+        postId={_id}
+        photo={photo}
+        user={user}
+      />
     </div>
   )
 }

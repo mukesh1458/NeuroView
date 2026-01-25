@@ -5,12 +5,14 @@ import Loader from '../components/Loader'
 import { toast } from 'react-hot-toast'
 import { FiGrid, FiBookmark, FiFilter, FiMaximize2, FiX } from 'react-icons/fi';
 
-const RenderCards = ({ data, title, openLightbox }) => {
+import { useAuth } from '../contexts/AuthContext';
+
+const RenderCards = ({ data, title, openLightbox, user }) => {
   if (data?.length > 0) {
     return (
       data.map((post, index) => (
         <div key={post._id} className={`animate-fade-in-up`} style={{ animationDelay: `${index * 50}ms` }}>
-          <Card {...post} openLightbox={openLightbox} />
+          <Card {...post} openLightbox={openLightbox} user={user} />
         </div>
       ))
     );
@@ -22,6 +24,7 @@ const RenderCards = ({ data, title, openLightbox }) => {
 };
 
 const Home = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [allPosts, setAllPosts] = useState(null);
   const [savedPosts, setSavedPosts] = useState([]);
@@ -260,6 +263,7 @@ const Home = () => {
                   data={displayData}
                   title={activeTab === 'feed' ? "No Posts Yet" : "No Saved Posts"}
                   openLightbox={setLightboxImage}
+                  user={user}
                 />
               )}
             </div>

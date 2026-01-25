@@ -25,19 +25,23 @@
 ### 3. **Premium "Anti-Gravity" UI/UX**
 *   **Theme**: "Mineral Dark" aesthetic with deep, living gradients.
 *   **Glassmorphism**: Extensive use of backdrop blurs not just for visuals, but for hierarchy.
-*   **Animations**:
-    *   **Staggered Entrance**: Grid items cascade in for a premium feel.
-    *   **Float & Levitate**: Key elements (logos, cards) gently float.
-    *   **Interactive Depth**: Cards zoom and lift with deep shadows on hover.
-*   **Typography**: Uses `Inter` font with **Tight Tracking** and **ExtraBold** weights for a modern, tech-forward look.
+*   **Animations**: Staggered entrance, float effects, and interactive depth.
+
+### 4. **Professional "Creative Studio" Features (New! 2026)**
+*   **🔐 User Authentication**: Secure Login/Register system with JWT validation and personalized profiles.
+*   **🌲 Remix Ecosystem**: Create variations of existing art. The system tracks "Parent" posts, creating a genealogical tree of creativity.
+*   **🎨 Auto-Palette**: AI automatically extracts the **5 Dominant Colors** from every generated image and displays them as a visual palette.
+*   **📂 Mood Boards (Collections)**: Organize your favorite inspirations into curated, private or public boards (e.g., "Sci-Fi", "Portraits").
+*   **👤 User Profiles**: A dedicated space to manage your Creations, Remixes, and Collections.
 
 ---
 
 ## 🛠️ Technology Stack
 
-*   **Frontend**: React.js (Vite), Tailwind CSS, Framer Motion (Transitions).
+*   **Frontend**: React.js (Vite), Tailwind CSS, Framer Motion, ColorThief (Analysis).
 *   **Backend**: Node.js, Express.js.
-*   **Database**: MongoDB (Cloudinary metadata & Text Summaries).
+*   **Database**: MongoDB (Schemaless flexibility for Art & Text).
+*   **Security**: BCrypt (Hashing), JWT (Sessions), Nodemailer (Verification).
 *   **Cloud Storage**: Cloudinary (Image hosting).
 *   **AI Integration**: Hugging Face Inference API, RapidAPI.
 

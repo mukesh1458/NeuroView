@@ -7,6 +7,7 @@ import FormField from '../components/FormField';
 import Loader from '../components/Loader';
 import { BiSolidError } from 'react-icons/bi'
 import { FiZap, FiDownload, FiRefreshCw, FiSettings, FiTrash2, FiShare2 } from 'react-icons/fi';
+import ColorThief from 'colorthief';
 import CreatePageDropDown from '../components/CreatePageDropDown';
 
 const STYLE_PRESETS = [
@@ -45,14 +46,14 @@ const CreatePost = () => {
 
   // Advanced Features State
   const [sessionHistory, setSessionHistory] = useState([]);
-  const [filters, setFilters] = useState({ brightness: 100, contrast: 100, saturation: 100 });
+  const [filters, setFilters] = useState({ brightness: 100, contrast: 100, saturation: 100, sepia: 0, blur: 0, hueRotate: 0 });
   const [showFilters, setShowFilters] = useState(false);
 
 
-  const resetFilters = () => setFilters({ brightness: 100, contrast: 100, saturation: 100 });
+  const resetFilters = () => setFilters({ brightness: 100, contrast: 100, saturation: 100, sepia: 0, blur: 0, hueRotate: 0 });
 
   const getFilterStyle = () => ({
-    filter: `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%)`
+    filter: `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%) sepia(${filters.sepia}%) blur(${filters.blur}px) hue-rotate(${filters.hueRotate}deg)`
   });
 
   // Updated Download Logic to bake filters
@@ -60,7 +61,7 @@ const CreatePost = () => {
     if (!form.photo) return;
 
     // If no filters changed, simple download
-    if (filters.brightness === 100 && filters.contrast === 100 && filters.saturation === 100) {
+    if (filters.brightness === 100 && filters.contrast === 100 && filters.saturation === 100 && filters.sepia === 0 && filters.blur === 0 && filters.hueRotate === 0) {
       downloadImage(Date.now(), form.photo);
       return;
     }
@@ -75,7 +76,7 @@ const CreatePost = () => {
     img.onload = () => {
       canvas.width = img.width;
       canvas.height = img.height;
-      ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%)`;
+      ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%) sepia(${filters.sepia}%) blur(${filters.blur}px) hue-rotate(${filters.hueRotate}deg)`;
       ctx.drawImage(img, 0, 0, img.width, img.height);
 
       const link = document.createElement('a');
@@ -88,8 +89,13 @@ const CreatePost = () => {
   // Remix Logic
   useEffect(() => {
     if (location.state) {
-      const { prompt, model } = location.state;
-      setForm(prev => ({ ...prev, prompt: prompt || '', model: model || 'stable-diffusion-2-1' }));
+      const { prompt, model, parentId } = location.state; // Extract parentId
+      setForm(prev => ({
+        ...prev,
+        prompt: prompt || '',
+        model: model || 'stable-diffusion-2-1',
+        parentId: parentId || null
+      }));
       toast.success("Remixing prompt loaded!");
     }
   }, [location.state]);
@@ -124,10 +130,6 @@ const CreatePost = () => {
       setGeneratingImg(true);
       setErrorHandler({ isError: false, status: '' });
 
-      // Construct final prompt with negative prompt if present
-      // Note: The backend/model might not support explicit logical negative prompt syntax simply by appending.
-      // For now, we simply pass the prompt. If using a model that parses " --no ", we can append locally.
-      // We will append it for now to let the model try to interpret it.
       let finalPrompt = form.prompt;
       if (negativePrompt) {
         finalPrompt += ` ### NOT ${negativePrompt}`;
@@ -152,11 +154,23 @@ const CreatePost = () => {
 
         const blob = await response.blob();
         const imageUrl = URL.createObjectURL(blob);
-        setForm({ ...form, photo: imageUrl });
+        setForm(prev => ({ ...prev, photo: imageUrl }));
 
-        // Add to Session History
         setSessionHistory(prev => [imageUrl, ...prev].slice(0, 5));
-        resetFilters(); // Reset filters for new image
+        resetFilters();
+
+        // Extract Colors
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.src = imageUrl;
+        img.onload = () => {
+          const colorThief = new ColorThief();
+          const palette = colorThief.getPalette(img, 5); // Get 5 dominant colors
+          const hexPalette = palette.map(rgb => `#${rgb[0].toString(16).padStart(2, '0')}${rgb[1].toString(16).padStart(2, '0')}${rgb[2].toString(16).padStart(2, '0')}`);
+          setForm(prev => ({ ...prev, colors: hexPalette }));
+          toast.success("Palette Extracted! 🎨");
+        }
+
       } catch (error) {
         console.error("Error generating image:", error);
         toast.error(`AGI Error: ${error.message}`);
@@ -185,18 +199,30 @@ const CreatePost = () => {
             formData.append('name', form.name);
             formData.append('prompt', form.prompt);
             formData.append('model', form.model);
+            if (form.parentId) formData.append('parentId', form.parentId);
+            if (form.colors) formData.append('colors', JSON.stringify(form.colors));
+
+            const token = localStorage.getItem('token');
 
             fetch(POST_DATA_API, {
               method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`
+              },
               body: formData
             })
               .then(response => {
+                if (response.status === 401) throw new Error("Please login to share posts!");
+                if (!response.ok) throw new Error("Failed to share post");
+                return response.json();
+              })
+              .then(() => {
                 toast.success("Shared Successfully!")
                 setLoading(false);
                 navigate('/');
               })
               .catch(error => {
-                toast.error(error)
+                toast.error(error.message || error);
                 setLoading(false);
               });
           });
@@ -327,62 +353,58 @@ const CreatePost = () => {
             </div>
           )}
 
-          <div className="aspect-square w-full rounded-2xl glass-card overflow-hidden border border-white/10 relative group flex justify-center items-center bg-black/40">
-            {errorHandler.isError && (
-              <div className='flex flex-col gap-4 justify-center items-center p-8 text-center'>
-                <BiSolidError className='w-16 h-16 text-red-500' />
-                <p className='text-zinc-300'>Failed to generate image.</p>
-                <p className='text-sm text-red-400 font-mono bg-red-500/10 px-2 py-1 rounded'>{errorHandler.status}</p>
-              </div>
-            )}
-
-            {form.photo ? (
-              <img
-                src={form.photo}
-                alt={form.photo}
-                className="w-full h-full object-cover animate-in fade-in zoom-in duration-500 transition-all"
-                style={getFilterStyle()}
-              />
-            ) : !errorHandler.isError && (
-              <img
-                src={preview}
-                alt="preview"
-                className="w-1/3 object-contain opacity-20 grayscale"
-              />
-            )}
-
-            {generatingImg && (
-              <div className="absolute inset-0 z-10 flex flex-col gap-4 justify-center items-center bg-[#09090b]/90 backdrop-blur-md animate-in fade-in duration-700">
-                <Loader />
-              </div>
-            )}
-
-            {/* Filter & Download Controls Overlay */}
-            {form.photo && !generatingImg && (
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-
-                {/* Filter Toggles */}
-                <div className="flex justify-between items-end">
-                  <button
-                    type="button"
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="text-xs bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-white hover:bg-white/20 transition-colors border border-white/10"
-                  >
-                    {showFilters ? 'Hide Filters' : 'Edit Image'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleDownload}
-                    className="bg-white text-black p-3 rounded-full hover:scale-110 transition-transform shadow-lg shadow-white/20"
-                    title="Download"
-                  >
-                    <FiDownload size={20} />
-                  </button>
+          {(form.photo || generatingImg || errorHandler.isError) && (
+            <div className="aspect-square w-full rounded-2xl glass-card overflow-hidden border border-white/10 relative group flex justify-center items-center bg-black/40 animate-scale-in">
+              {errorHandler.isError && (
+                <div className='flex flex-col gap-4 justify-center items-center p-8 text-center'>
+                  <BiSolidError className='w-16 h-16 text-red-500' />
+                  <p className='text-zinc-300'>Failed to generate image.</p>
+                  <p className='text-sm text-red-400 font-mono bg-red-500/10 px-2 py-1 rounded'>{errorHandler.status}</p>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+
+              {form.photo ? (
+                <img
+                  src={form.photo}
+                  alt={form.photo}
+                  className="w-full h-full object-cover animate-in fade-in zoom-in duration-500 transition-all"
+                  style={getFilterStyle()}
+                />
+              ) : null}
+
+              {generatingImg && (
+                <div className="absolute inset-0 z-10 flex flex-col gap-4 justify-center items-center bg-[#09090b]/90 backdrop-blur-md animate-in fade-in duration-700">
+                  <Loader />
+                </div>
+              )}
+
+              {/* Filter & Download Controls Overlay */}
+              {form.photo && !generatingImg && (
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+
+                  {/* Filter Toggles */}
+                  <div className="flex justify-between items-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowFilters(!showFilters)}
+                      className="text-xs bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-white hover:bg-white/20 transition-colors border border-white/10"
+                    >
+                      {showFilters ? 'Hide Filters' : 'Edit Image'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDownload}
+                      className="bg-white text-black p-3 rounded-full hover:scale-110 transition-transform shadow-lg shadow-white/20"
+                      title="Download"
+                    >
+                      <FiDownload size={20} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Filter Sliders Panel */}
           {showFilters && form.photo && (
@@ -395,15 +417,29 @@ const CreatePost = () => {
               <div className="grid grid-cols-1 gap-4">
                 <div className="flex items-center gap-3">
                   <span className="text-xs w-16 text-zinc-400">Brightness</span>
-                  <input type="range" min="0" max="200" value={filters.brightness} onChange={(e) => setFilters({ ...filters, brightness: e.target.value })} className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-purple-500" />
+                  <input type="range" min="0" max="200" value={filters.brightness} onChange={(e) => setFilters({ ...filters, brightness: e.target.value })} className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs w-16 text-zinc-400">Contrast</span>
-                  <input type="range" min="0" max="200" value={filters.contrast} onChange={(e) => setFilters({ ...filters, contrast: e.target.value })} className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-pink-500" />
+                  <input type="range" min="0" max="200" value={filters.contrast} onChange={(e) => setFilters({ ...filters, contrast: e.target.value })} className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs w-16 text-zinc-400">Saturation</span>
-                  <input type="range" min="0" max="200" value={filters.saturation} onChange={(e) => setFilters({ ...filters, saturation: e.target.value })} className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+                  <input type="range" min="0" max="200" value={filters.saturation} onChange={(e) => setFilters({ ...filters, saturation: e.target.value })} className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+                </div>
+
+                {/* New Filters */}
+                <div className="flex items-center gap-3">
+                  <span className="text-xs w-16 text-zinc-400">Sepia</span>
+                  <input type="range" min="0" max="100" value={filters.sepia} onChange={(e) => setFilters({ ...filters, sepia: e.target.value })} className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs w-16 text-zinc-400">Blur</span>
+                  <input type="range" min="0" max="10" step="0.5" value={filters.blur} onChange={(e) => setFilters({ ...filters, blur: e.target.value })} className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs w-16 text-zinc-400">Hue</span>
+                  <input type="range" min="0" max="360" value={filters.hueRotate} onChange={(e) => setFilters({ ...filters, hueRotate: e.target.value })} className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-pink-500" />
                 </div>
               </div>
             </div>
