@@ -116,9 +116,12 @@ const Summarize = () => {
     toast.success("PDF Downloaded!");
   };
 
+  const [name, setName] = useState("");
+
   // Handler: Share to Web Summaries
   const handleShareText = async () => {
     if (!article.summary) return;
+    if (!name.trim()) return toast.error("Please enter your name to share!");
 
     const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8080/api/v1';
     try {
@@ -131,7 +134,8 @@ const Summarize = () => {
         body: JSON.stringify({
           content: article.summary,
           sourceUrl: isURL ? article.data : null,
-          originalText: isURL ? null : article.data
+          originalText: isURL ? null : article.data,
+          name: name
         })
       });
 
@@ -316,6 +320,13 @@ const Summarize = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <input
+              type="text"
+              placeholder="Your Name (for sharing)"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="input-modern bg-black/40"
+            />
             <div className="relative group">
               <TextareaAutosize
                 minRows={3}

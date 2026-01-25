@@ -230,7 +230,10 @@ const CreatePost = () => {
         toast.error(error)
       }
     } else {
-      alert('Please generate an image with proper details');
+      if (!form.name) toast.error("Please enter your name");
+      else if (!form.prompt) toast.error("Please enter a prompt");
+      else if (!form.photo) toast.error("Please generate an image first");
+      else toast.error("Please generate an image with proper details");
     }
   }
 

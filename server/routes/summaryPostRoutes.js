@@ -19,7 +19,7 @@ router.get("/summary-posts", async (req, res) => {
 // CREATE a new summary post
 router.post("/summary-posts", async (req, res) => {
     try {
-        const { content, sourceUrl, originalText } = req.body;
+        const { content, sourceUrl, originalText, name } = req.body;
 
         if (!content) {
             return res.status(400).json({ success: false, message: "Content is required" });
@@ -28,7 +28,8 @@ router.post("/summary-posts", async (req, res) => {
         const newPost = await SummaryPost.create({
             content,
             sourceUrl,
-            originalText
+            originalText,
+            name: name || 'Anonymous'
         });
 
         res.status(200).json({ success: true, data: newPost });

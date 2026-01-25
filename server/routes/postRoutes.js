@@ -62,4 +62,27 @@ router.post("/post", verifyToken, async (req, res) => {
     }
 })
 
+// DELETE Post (Protected)
+router.delete("/post/:id", verifyToken, async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id);
+
+        if (!post) {
+            return res.status(404).json({ success: false, message: "Post not found" });
+        }
+
+        // Verify Ownership
+        if (!req.user || post.user.toString() !== req.user.id) {
+            return res.status(403).json({ success: false, message: "Unauthorized action" });
+        }
+
+        // Optional: Delete from Cloudinary too if desired, but for now just DB
+        await post.deleteOne();
+
+        res.status(200).json({ success: true, message: "Post deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 export default router;

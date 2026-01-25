@@ -6,6 +6,8 @@
 
 ![NeuroView Banner](https://via.placeholder.com/1200x400.png?text=Summarize+the+World.+Visualize+Your+Dreams.)
 
+> **📘 New to this project?** check out the comprehensive **[Beginner's Guide & Architecture Walkthrough](BEGINNER_GUIDE.md)**!
+
 ## 🚀 Key Features
 
 ### 1. **AI Image Generation (NeuroArt)**

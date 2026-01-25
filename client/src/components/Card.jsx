@@ -1,16 +1,18 @@
+
 import React, { useState, useEffect } from 'react'
 import { download } from '../assets';
 import { downloadImage } from '../utils';
-import { FiHeart, FiShare2, FiBookmark, FiCopy, FiZap, FiMaximize } from 'react-icons/fi';
+import { FiHeart, FiShare2, FiBookmark, FiCopy, FiZap, FiMaximize, FiTrash2 } from 'react-icons/fi';
 import { FaHeart } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
 import CollectionModal from './CollectionModal';
 
-const Card = ({ _id, name, prompt, model, photo, openLightbox, parentId, colors, user }) => {
+const Card = ({ _id, name, prompt, model, photo, openLightbox, parentId, colors, user, authUser }) => {
   const navigate = useNavigate();
   const [showCollectionModal, setShowCollectionModal] = useState(false);
+  const BASE_URL = process.env.REACT_APP_BASE_URL;
 
   // Safe helpers
   const safeName = name || "Anonymous";
@@ -19,10 +21,32 @@ const Card = ({ _id, name, prompt, model, photo, openLightbox, parentId, colors,
 
   const handleBookmark = (e) => {
     e.stopPropagation();
-    if (user) {
+    if (authUser) {
       setShowCollectionModal(true);
     } else {
       toast.error("Please login to save posts");
+    }
+  };
+
+  const handleDelete = async (e) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this post?")) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${BASE_URL}/post/${_id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Post deleted");
+        window.location.reload(); // Simple refresh to update UI
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error("Failed to delete");
     }
   };
 
@@ -40,7 +64,7 @@ const Card = ({ _id, name, prompt, model, photo, openLightbox, parentId, colors,
   const handleShare = (e) => {
     e.stopPropagation();
     // Open share menu or simple twitter intent
-    const text = `Check out this AI art generated with MERN-AI! "${prompt}"`;
+    const text = `Check out this AI art generated with MERN - AI! "${prompt}"`;
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
@@ -96,7 +120,7 @@ const Card = ({ _id, name, prompt, model, photo, openLightbox, parentId, colors,
               {safeInitial}
             </div>
             <div className="flex flex-col">
-              <p className="text-white text-sm font-medium leading-none">{name}</p>
+              <p className="text-white text-sm font-medium leading-none">{safeName}</p>
               <span className="text-[10px] text-zinc-400">{model}</span>
             </div>
           </div>
@@ -107,6 +131,13 @@ const Card = ({ _id, name, prompt, model, photo, openLightbox, parentId, colors,
             <button type="button" onClick={handleBookmark} className="p-2 hover:bg-white/10 rounded-full transition-colors" title="Save to Board">
               <FiBookmark className="w-4 h-4 text-white group-hover:text-cyan-400 transition-colors" />
             </button>
+
+            {/* Delete (Owner only) */}
+            {authUser && user === authUser.id && (
+              <button type="button" onClick={handleDelete} className="p-2 hover:bg-red-500/20 rounded-full transition-colors group/delete" title="Delete Post">
+                <FiTrash2 className="w-4 h-4 text-zinc-400 group-hover/delete:text-red-400 transition-colors" />
+              </button>
+            )}
 
             {/* Remix */}
             <button type="button" onClick={handleRemix} className="p-2 hover:bg-white/10 rounded-full transition-colors" title="Remix this prompt">
@@ -130,7 +161,7 @@ const Card = ({ _id, name, prompt, model, photo, openLightbox, parentId, colors,
         onClose={() => setShowCollectionModal(false)}
         postId={_id}
         photo={photo}
-        user={user}
+        user={authUser}
       />
     </div>
   )

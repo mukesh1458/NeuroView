@@ -4,6 +4,7 @@ import FormField from '../components/FormField'
 import Loader from '../components/Loader'
 import { toast } from 'react-hot-toast'
 import { FiGrid, FiBookmark, FiFilter, FiMaximize2, FiX } from 'react-icons/fi';
+import { FiZap } from 'react-icons/fi';
 
 import { useAuth } from '../contexts/AuthContext';
 
@@ -12,7 +13,7 @@ const RenderCards = ({ data, title, openLightbox, user }) => {
     return (
       data.map((post, index) => (
         <div key={post._id} className={`animate-fade-in-up`} style={{ animationDelay: `${index * 50}ms` }}>
-          <Card {...post} openLightbox={openLightbox} user={user} />
+          <Card {...post} openLightbox={openLightbox} authUser={user} />
         </div>
       ))
     );
@@ -67,11 +68,7 @@ const Home = () => {
     }
   }
 
-  // Load Saved Posts
-  useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('savedPosts') || '[]');
-    setSavedPosts(saved);
-  }, [activeTab]); // Refresh when switching tokens
+
 
   const handleSearchChange = (e) => {
     clearTimeout(searchTimeout);
@@ -124,7 +121,7 @@ const Home = () => {
 
   // Derived State for Display
   const getDisplayData = () => {
-    let data = searchText ? searchedResults : (activeTab === 'feed' ? allPosts : savedPosts);
+    let data = searchText ? searchedResults : allPosts;
     if (!data) return [];
 
     // Filter
@@ -132,17 +129,29 @@ const Home = () => {
       data = data.filter(post => post.model === filterModel);
     }
 
-    // Sort
-    if (sortBy === 'oldest') {
-      // Create a copy to avoid mutating state directly if it's the reference
-      data = [...data].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+    // Sort / Tabs
+    // For 'feed', we use standard sort. For 'trending', we shuffle or show random selection.
+    // Since shuffle on every render is bad, we validly just use a memoized or simple reverse for Feed.
+    // Ideally Trending needs backend support, but for now we'll simulate with a deterministic shuffle or just a different sort.
+
+    let finalData = [...data];
+
+    if (activeTab === 'trending') {
+      // Simple client-side shuffle for "Trending" simulation
+      finalData = finalData.sort(() => Math.random() - 0.5);
     } else {
-      // Default newest (already reversed from API, or we rely on logic)
-      // If we need explicit sort:
-      // data = [...data].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      // Feed: Newest First (Sort by createdAt converted to ID or Date)
+      if (sortBy === 'oldest') {
+        finalData = finalData.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+      } else {
+        // Default newest
+        // finalData is already reversed from fetch? fetch reversed it.
+        // If we want to be sure:
+        // finalData.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      }
     }
 
-    return data;
+    return finalData;
   }
 
   const displayData = getDisplayData();
@@ -195,10 +204,10 @@ const Home = () => {
               <FiGrid className="inline mr-2" /> Community Feed
             </button>
             <button
-              onClick={() => setActiveTab('saved')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'saved' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-400 hover:text-zinc-200'}`}
+              onClick={() => setActiveTab('trending')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'trending' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-400 hover:text-zinc-200'}`}
             >
-              <FiBookmark className="inline mr-2" /> Saved Collection
+              <FiZap className="inline mr-2" /> Trending
             </button>
           </div>
 

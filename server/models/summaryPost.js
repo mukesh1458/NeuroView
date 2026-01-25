@@ -5,6 +5,11 @@ const SummaryPost = new mongoose.Schema({
         type: String,
         required: true
     },
+    name: {
+        type: String,
+        required: true,
+        default: 'Anonymous'
+    },
     sourceUrl: {
         type: String,
         required: false

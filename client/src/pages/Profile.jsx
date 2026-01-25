@@ -108,7 +108,7 @@ const Profile = () => {
                     {activeTab === 'created' && (
                         <div className="grid lg:grid-cols-4 sm:grid-cols-3 xs:grid-cols-2 grid-cols-1 gap-4">
                             {posts.length > 0 ? (
-                                posts.map(post => <Card key={post._id} {...post} user={user} />)
+                                posts.map(post => <Card key={post._id} {...post} authUser={user} />)
                             ) : (
                                 <div className="col-span-full text-center py-20 text-zinc-500">
                                     No creations yet. Go create something amazing!
