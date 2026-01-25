@@ -224,50 +224,44 @@ const Summarize = () => {
       return;
     }
 
-    if (!RAPID_API) {
-      return toast.error("Missing API Key! check .env file.");
-    }
-
     setLoading(true);
     setReadingCompleted(false);
 
     try {
-      let result = "";
       const isURL = urlRegex.test(article.data);
+      const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8080/api/v1';
+      let result = "";
 
-      if (isURL) {
-        // URL supports both Summarize and Translate via the 'lang' param in RapidAPI
-        let targetLang = null;
-        if (action === "Translate" || action === "Summarize And Translate") {
-          targetLang = lang;
-        }
-        const data = await summarizeFromUrl(article.data, targetLang);
-        result = data.summary || data.message;
+      if (action === "Translate" || action === "Summarize And Translate") {
+        // Translation Endpoint
+        const response = await fetch(`${BASE_URL}/translate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: isURL ? null : article.data,
+            url: isURL ? article.data : null,
+            target_lang: lang
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "Translation failed");
+        result = data.summary;
 
       } else {
-        // Text Mode
-        if (action === "Translate" || action === "Summarize And Translate") {
-          // RapidAPI 'text-summarize-pro' doesn't support translation.
-          // Fallback: Use our Local Backend for Text Translation (Hybrid Approach)
-          const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8080/api/v1';
+        // Summarization Endpoint (Backend)
+        const response = await fetch(`${BASE_URL}/summary`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: isURL ? null : article.data,
+            url: isURL ? article.data : null
+          })
+        });
 
-          const response = await fetch(`${BASE_URL}/translate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              text: article.data,
-              target_lang: lang
-            })
-          });
-
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.message || "Translation failed");
-          result = data.summary; // Backend returns 'summary' key
-        } else {
-          // Just Summarize (Text) -> Use RapidAPI
-          const data = await summarizeFromText(article.data);
-          result = data.summary || data.message;
-        }
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "Summarization failed");
+        result = data.summary;
       }
 
       if (result) {
@@ -276,16 +270,11 @@ const Summarize = () => {
         setArticle(newArticle);
         setAllArticles(updated);
         localStorage.setItem("articles", JSON.stringify(updated));
+        toast.success("Processed Successfully!");
       }
     } catch (error) {
       console.error(error);
-      if (error.response?.status === 403) {
-        toast.error("API Key Invalid or Quota Exceeded.");
-      } else if (error.response?.status === 429) {
-        toast.error("Too many requests. Slow down!");
-      } else {
-        toast.error("Process failed. Please try again.");
-      }
+      toast.error(error.message || "Process failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -305,6 +294,9 @@ const Summarize = () => {
         </h1>
         <p className='text-zinc-400 text-[16px] max-w-[600px] mx-auto font-light leading-relaxed'>
           Unlock your learning potential. Turn lengthy articles into clear, concise insights in seconds.
+        </p>
+        <p className="mt-4 text-[10px] text-zinc-600 uppercase tracking-widest font-mono">
+          Engineered by Mukesh Chowdary & Team
         </p>
       </div>
 

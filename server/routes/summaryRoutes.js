@@ -67,7 +67,7 @@ router.post('/summary', async (req, res) => {
         }
 
         const summary = await hf.summarization({
-            model: 'facebook/bart-large-cnn',
+            model: 'sshleifer/distilbart-cnn-12-6',
             inputs: contentToSummarize,
             parameters: {
                 max_length: 150,
@@ -83,7 +83,24 @@ router.post('/summary', async (req, res) => {
 
     } catch (error) {
         console.error("Summarization Error:", error);
-        res.status(500).json({ success: false, message: error.message || "Summarization failed." });
+
+        // Retry with a fallback model if the primary one fails
+        if (error.message.includes("index out of range") || error.message.includes("500") || error.message.includes("503")) {
+            try {
+                console.log("Retrying with fallback model (distilbart-cnn-12-6)...");
+                const summary = await hf.summarization({
+                    model: 'sshleifer/distilbart-cnn-12-6',
+                    inputs: contentToSummarize,
+                    parameters: { max_length: 150, min_length: 30 }
+                });
+                const summaryText = summary.summary_text || (summary[0] && summary[0].summary_text);
+                return res.status(200).json({ success: true, summary: summaryText });
+            } catch (retryError) {
+                console.error("Fallback Summarization Error:", retryError);
+            }
+        }
+
+        res.status(500).json({ success: false, message: "AI Service Busy. Please try again with shorter text." });
     }
 });
 
@@ -163,7 +180,11 @@ router.post('/translate', async (req, res) => {
 
     } catch (error) {
         console.error("Translation Error:", error);
-        res.status(500).json({ success: false, message: error.message || "Translation failed." });
+        // Handle specific HF errors
+        if (error.message.includes("Model too busy") || error.message.includes("503")) {
+            return res.status(503).json({ success: false, message: "Translation service is currently busy. Please try again." });
+        }
+        res.status(500).json({ success: false, message: "Translation failed. Try simpler text." });
     }
 });
 

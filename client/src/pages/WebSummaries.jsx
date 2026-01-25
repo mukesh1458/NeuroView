@@ -104,6 +104,9 @@ const WebSummaries = () => {
                 <p className="mt-2 text-zinc-400 text-[16px] max-w-[600px] mx-auto font-light">
                     Browse the collection of curated web summaries shared by the community.
                 </p>
+                <p className="mt-4 text-[10px] text-zinc-600 uppercase tracking-widest font-mono">
+                    Curated by Mukesh Chowdary & Team
+                </p>
             </div>
 
             <div className="flex justify-center items-center">

@@ -6,9 +6,10 @@ import { getRandomPrompt, downloadImage } from '../utils';
 import FormField from '../components/FormField';
 import Loader from '../components/Loader';
 import { BiSolidError } from 'react-icons/bi'
-import { FiZap, FiDownload, FiRefreshCw, FiSettings, FiTrash2, FiShare2 } from 'react-icons/fi';
+import { FiZap, FiDownload, FiRefreshCw, FiSettings, FiTrash2, FiShare2, FiEdit3 } from 'react-icons/fi';
 import ColorThief from 'colorthief';
 import CreatePageDropDown from '../components/CreatePageDropDown';
+import ImageEditorModal from '../components/ImageEditorModal';
 
 const STYLE_PRESETS = [
   { name: 'Realistic', prompt: 'photorealistic, 8k, highly detailed, cinematic lighting, photography' },
@@ -48,6 +49,7 @@ const CreatePost = () => {
   const [sessionHistory, setSessionHistory] = useState([]);
   const [filters, setFilters] = useState({ brightness: 100, contrast: 100, saturation: 100, sepia: 0, blur: 0, hueRotate: 0 });
   const [showFilters, setShowFilters] = useState(false);
+  const [showEditorModal, setShowEditorModal] = useState(false);
 
 
   const resetFilters = () => setFilters({ brightness: 100, contrast: 100, saturation: 100, sepia: 0, blur: 0, hueRotate: 0 });
@@ -129,6 +131,27 @@ const CreatePost = () => {
     if (form.prompt && form.model) {
       setGeneratingImg(true);
       setErrorHandler({ isError: false, status: '' });
+      toast.loading((t) => (
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-lg shadow-lg flex-shrink-0">
+            M
+          </div>
+          <div>
+            <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Mukesh Chowdary</p>
+            <p className="font-bold text-sm">Dreaming your creation...</p>
+            <p className="text-xs text-zinc-400 mt-0.5">Running on free cloud • May take up to 2 mins</p>
+          </div>
+        </div>
+      ), {
+        id: 'gen-toast',
+        style: {
+          borderRadius: '12px',
+          background: '#18181b',
+          color: '#fff',
+          border: '1px solid #3f3f46',
+          padding: '12px',
+        },
+      });
 
       let finalPrompt = form.prompt;
       if (negativePrompt) {
@@ -156,6 +179,7 @@ const CreatePost = () => {
         const imageUrl = URL.createObjectURL(blob);
         setForm(prev => ({ ...prev, photo: imageUrl }));
 
+        toast.dismiss('gen-toast');
         setSessionHistory(prev => [imageUrl, ...prev].slice(0, 5));
         resetFilters();
 
@@ -172,6 +196,7 @@ const CreatePost = () => {
         }
 
       } catch (error) {
+        toast.dismiss('gen-toast');
         console.error("Error generating image:", error);
         toast.error(`AGI Error: ${error.message}`);
         setErrorHandler({ isError: true, status: error.message });
@@ -389,10 +414,10 @@ const CreatePost = () => {
                   <div className="flex justify-between items-end">
                     <button
                       type="button"
-                      onClick={() => setShowFilters(!showFilters)}
-                      className="text-xs bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-white hover:bg-white/20 transition-colors border border-white/10"
+                      onClick={() => setShowEditorModal(true)}
+                      className="text-xs bg-white/10 backdrop-blur-md px-3 py-2 rounded-lg text-white hover:bg-white/20 transition-colors border border-white/10 flex items-center gap-2 font-medium"
                     >
-                      {showFilters ? 'Hide Filters' : 'Edit Image'}
+                      <FiEdit3 size={14} /> Edit Image
                     </button>
 
                     <button
@@ -406,45 +431,6 @@ const CreatePost = () => {
                   </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* Filter Sliders Panel */}
-          {showFilters && form.photo && (
-            <div className="glass-panel p-4 rounded-xl animate-fade-in-up flex flex-col gap-3">
-              <div className="flex justify-between text-xs text-zinc-400 uppercase font-bold tracking-wider">
-                <span>Adjustments</span>
-                <button onClick={resetFilters} className="text-blue-400 hover:text-blue-300">Reset</button>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-xs w-16 text-zinc-400">Brightness</span>
-                  <input type="range" min="0" max="200" value={filters.brightness} onChange={(e) => setFilters({ ...filters, brightness: e.target.value })} className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs w-16 text-zinc-400">Contrast</span>
-                  <input type="range" min="0" max="200" value={filters.contrast} onChange={(e) => setFilters({ ...filters, contrast: e.target.value })} className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs w-16 text-zinc-400">Saturation</span>
-                  <input type="range" min="0" max="200" value={filters.saturation} onChange={(e) => setFilters({ ...filters, saturation: e.target.value })} className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
-                </div>
-
-                {/* New Filters */}
-                <div className="flex items-center gap-3">
-                  <span className="text-xs w-16 text-zinc-400">Sepia</span>
-                  <input type="range" min="0" max="100" value={filters.sepia} onChange={(e) => setFilters({ ...filters, sepia: e.target.value })} className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs w-16 text-zinc-400">Blur</span>
-                  <input type="range" min="0" max="10" step="0.5" value={filters.blur} onChange={(e) => setFilters({ ...filters, blur: e.target.value })} className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs w-16 text-zinc-400">Hue</span>
-                  <input type="range" min="0" max="360" value={filters.hueRotate} onChange={(e) => setFilters({ ...filters, hueRotate: e.target.value })} className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-pink-500" />
-                </div>
-              </div>
             </div>
           )}
 
@@ -467,6 +453,18 @@ const CreatePost = () => {
           )}
         </div>
       </div>
+
+      {/* Image Editor Modal */}
+      {showEditorModal && form.photo && (
+        <ImageEditorModal
+          imageUrl={form.photo}
+          onSave={(editedUrl) => {
+            setForm(prev => ({ ...prev, photo: editedUrl }));
+            setShowEditorModal(false);
+          }}
+          onClose={() => setShowEditorModal(false)}
+        />
+      )}
 
     </section >
   )

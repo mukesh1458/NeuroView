@@ -69,6 +69,9 @@ const Login = () => {
                         Register
                     </Link>
                 </p>
+                <div className="mt-4 text-center">
+                    <p className="text-xs text-zinc-500 font-light">Crafted by <span className="text-zinc-400 font-medium">Mukesh Chowdary & Team</span></p>
+                </div>
             </div>
         </section>
     );
