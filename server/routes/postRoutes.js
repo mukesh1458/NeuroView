@@ -17,7 +17,26 @@ cloudinary.config({
 
 router.get("/post", async (req, res) => {
     try {
-        const posts = await Post.find();
+        const { search, model, color } = req.query;
+        const query = {};
+
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: "i" } },
+                { prompt: { $regex: search, $options: "i" } },
+            ];
+        }
+
+        if (model && model !== "All") {
+            query.model = model;
+        }
+
+        if (color && color !== "All") {
+            // Case-insensitive match for color in the array
+            query.colors = { $elemMatch: { $regex: color, $options: "i" } };
+        }
+
+        const posts = await Post.find(query).sort({ _id: -1 });
         res.status(200).json({ success: true, data: posts });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Fetching posts failed, please try again' });
@@ -80,6 +99,36 @@ router.delete("/post/:id", verifyToken, async (req, res) => {
         await post.deleteOne();
 
         res.status(200).json({ success: true, message: "Post deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// GET Post Lineage (Remix Tree)
+router.get("/post/:id/lineage", async (req, res) => {
+    try {
+        const currentPost = await Post.findById(req.params.id);
+        if (!currentPost) {
+            return res.status(404).json({ success: false, message: "Post not found" });
+        }
+
+        // Get Parent (if exists)
+        let parent = null;
+        if (currentPost.parentId) {
+            parent = await Post.findById(currentPost.parentId);
+        }
+
+        // Get Children (immediate remixes)
+        const children = await Post.find({ parentId: req.params.id });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                parent,
+                current: currentPost,
+                children
+            }
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

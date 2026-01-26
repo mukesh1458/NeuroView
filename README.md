@@ -14,7 +14,7 @@
 *   **Powered By**: Stable Diffusion models hosted on Hugging Face.
 *   **Functionality**: Users can input text prompts to generate high-fidelity, imaginative images ("Visualize Your Dreams").
 *   **Key Tech**: `@huggingface/inference` SDK integrated securely on the backend.
-*   **Community Showcase**: A masonry-grid gallery displaying community creations with **search**, **staggered animations**, and **download** capabilities.
+*   **Community Showcase**: A masonry-grid gallery displaying community creations with **Advanced Search**, **Model/Color Fitlering**, and **staggered animations**.
 
 ### 2. **AI Text Intelligence (NeuroSense)**
 *   **Summarizer**: Instantly condenses long articles or text blocks into concise, digestible summaries ("Study Smarter, Not Harder").
@@ -27,13 +27,14 @@
 ### 3. **Premium "Anti-Gravity" UI/UX**
 *   **Theme**: "Mineral Dark" aesthetic with deep, living gradients.
 *   **Glassmorphism**: Extensive use of backdrop blurs not just for visuals, but for hierarchy.
-*   **Animations**: Staggered entrance, float effects, and interactive depth.
+*   **Interactive Cards**: "Instagram-style" hover actions with "Pop-out" buttons.
 
 ### 4. **Professional "Creative Studio" Features (New! 2026)**
 *   **🔐 User Authentication**: Secure Login/Register system with JWT validation and personalized profiles.
-*   **🌲 Remix Ecosystem**: Create variations of existing art. The system tracks "Parent" posts, creating a genealogical tree of creativity.
+*   **🌲 Remix Genealogy**: Visualize the "Family Tree" of any image! Click the lightning bolt to see the Parent → Current → Children relationships in a stunning interactive modal.
 *   **🎨 Auto-Palette**: AI automatically extracts the **5 Dominant Colors** from every generated image and displays them as a visual palette.
-*   **📂 Mood Boards (Collections)**: Organize your favorite inspirations into curated, private or public boards (e.g., "Sci-Fi", "Portraits").
+*   **🔍 Advanced Filtering**: Find the perfect inspiration by filtering posts by **AI Model** (Stable Diffusion, DALL-E) or **Dominant Color**.
+*   **📂 Mood Boards (Collections)**: Organize your favorite inspirations into curated, private or public boards.
 *   **👤 User Profiles**: A dedicated space to manage your Creations, Remixes, and Collections.
 
 ---
