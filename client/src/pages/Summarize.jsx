@@ -71,7 +71,7 @@ const Summarize = () => {
 
 
 
-  const actions = ['Summarize And Translate', 'Translate'];
+  const actions = ['Summarize', 'Translate'];
 
   // Helper: Calculate Reading Time
   const getReadingTime = (text) => {
@@ -288,40 +288,8 @@ const Summarize = () => {
     localStorage.setItem("articles", JSON.stringify(newArticles));
   }
 
-  const RAPID_API = process.env.REACT_APP_RAPID_API_KEY;
 
   const urlRegex = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}([-a-zA-Z0-9@:%_\+.~#?&//=]*)?$/;
-
-  const summarizeFromUrl = async (url, targetLang) => {
-    // INCREASED LENGTH to 6 for better accuracy/depth
-    const params = { url, length: '6' };
-    if (targetLang) params.lang = targetLang;
-
-    const options = {
-      method: 'GET',
-      url: 'https://article-extractor-and-summarizer.p.rapidapi.com/summarize',
-      params: params,
-      headers: {
-        'X-RapidAPI-Key': RAPID_API,
-        'X-RapidAPI-Host': 'article-extractor-and-summarizer.p.rapidapi.com'
-      }
-    };
-    return (await axios.request(options)).data;
-  }
-
-  const summarizeFromText = async (text) => {
-    // Basic text summarizer (no translation in this specific endpoint usually)
-    const encodedParams = new URLSearchParams();
-    encodedParams.set('text', text);
-    encodedParams.set('percentage', '40');
-    const options = {
-      method: 'POST',
-      url: 'https://text-summarize-pro.p.rapidapi.com/summarizeFromText',
-      headers: { 'content-type': 'application/x-www-form-urlencoded', 'X-RapidAPI-Key': RAPID_API, 'X-RapidAPI-Host': 'text-summarize-pro.p.rapidapi.com' },
-      data: encodedParams,
-    };
-    return (await axios.request(options)).data;
-  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -340,64 +308,51 @@ const Summarize = () => {
     // AUTO-DETECT: If action implies translation but no lang selected, default to 'en'
     let selectedLang = lang;
     if ((action === "Translate" || action === "Summarize And Translate") && !selectedLang) {
-      selectedLang = 'en';
-      setLang('en');
+      selectedLang = 'English';
+      setLang('English');
     }
 
-    // For pure summarization, we assume English output for now (BART model)
     if (action === "Summarize") {
-      selectedLang = 'en';
+      selectedLang = 'English'; // Force EN for pure summary
     }
 
     try {
       const isURL = urlRegex.test(article.data);
-      const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8080/api/v1';
       let result = "";
+      const BASE_URL = 'http://localhost:8080/api/v1'; // Hardcoded for local dev or use env
 
-      if (action === "Translate" || action === "Summarize And Translate") {
-        // Translation Endpoint
-        const response = await fetch(`${BASE_URL}/translate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: isURL ? null : article.data,
-            url: isURL ? article.data : null,
-            target_lang: selectedLang // Use extracted selectedLang
-          })
+      if (action === "Translate") {
+        const { data } = await axios.post(`${BASE_URL}/translate`, {
+          text: isURL ? null : article.data,
+          url: isURL ? article.data : null,
+          target_lang: selectedLang
         });
-
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || "Translation failed");
-        result = data.summary;
-
+        result = data.summary; // Backend returns 'summary' key for consistency
       } else {
-        // Summarization Endpoint (Backend)
-        const response = await fetch(`${BASE_URL}/summary`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: isURL ? null : article.data,
-            url: isURL ? article.data : null
-          })
+        // Summarize OR Summarize & Translate
+        const { data } = await axios.post(`${BASE_URL}/summary`, {
+          text: isURL ? null : article.data,
+          url: isURL ? article.data : null,
+          target_lang: (action === "Summarize And Translate") ? selectedLang : null
         });
-
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || "Summarization failed");
         result = data.summary;
       }
 
       if (result) {
-        // SAVE LANGUAGE STATE so TTS knows what to use
-        const newArticle = { ...article, summary: result, language: selectedLang };
+        // SAVE LANGUAGE STATE
+        const finalLang = (action === "Summarize") ? 'en' : selectedLang;
+
+        const newArticle = { ...article, summary: result, language: finalLang };
         const updated = [newArticle, ...allArticles];
         setArticle(newArticle);
         setAllArticles(updated);
         localStorage.setItem("articles", JSON.stringify(updated));
         toast.success("Processed Successfully!");
       }
+
     } catch (error) {
       console.error(error);
-      toast.error(error.message || "Process failed. Please try again.");
+      toast.error(error.response?.data?.message || error.message || "Process failed. Please try again.");
     } finally {
       setLoading(false);
     }

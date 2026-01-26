@@ -175,8 +175,8 @@ const CreatePost = () => {
           throw new Error(errorData.message || response.statusText);
         }
 
-        const blob = await response.blob();
-        const imageUrl = URL.createObjectURL(blob);
+        const data = await response.json();
+        const imageUrl = data.photo;
         setForm(prev => ({ ...prev, photo: imageUrl }));
 
         toast.dismiss('gen-toast');

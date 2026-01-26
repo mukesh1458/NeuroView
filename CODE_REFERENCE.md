@@ -37,44 +37,47 @@ This document outlines the specific file locations and code snippets for the cor
     });
     ```
 
-## 3. Web Scraping & Language Detection (Backend)
-**File:** `server/routes/summaryRoutes.js`
+## 3. Web Intelligence (Hybrid Architecture)
+**File:** `client/src/pages/Summarize.jsx` & `server/routes/summaryRoutes.js`
 
-*   **Intelligent Scraping (`Cheerio`):**
-    We use Cheerio to parse HTML and extract meaningful content (p, h1-h6, li, article), ignoring ads and scripts.
+We use a **Hybrid Strategy** to ensure maximum efficiency:
+
+*   **URL Processing (RapidAPI):**
+    For extracting and summarizing articles from URLs, we use the robust **Article Extractor API** (via RapidAPI). This handles cleaning, summarization, and translation in one step.
     ```javascript
-    const $ = cheerio.load(html);
-    $('script, style, ...').remove();
-    $('p, h1, ...').each(...)
+    // Summarize.jsx
+    const rapidData = await summarizeFromUrl(article.data, target);
     ```
 
-*   **Language Detection (`Franc`):**
-    The system automatically detects the source language of input text to ensure accurate translation.
+*   **Text Summarization (RapidAPI):**
+    Pure text summarization also leverages RapidAPI's `text-summarize-pro` for speed and quality.
     ```javascript
-    const detectedIso = franc(contentToTranslate);
-    const src_lang = isoToMbart[detectedIso] || 'en_XX';
+    // Summarize.jsx
+    const rapidData = await summarizeFromText(article.data);
     ```
 
-## 4. AI Translation & Summarization (Backend)
-**File:** `server/routes/summaryRoutes.js`
-
-*   **Translation Model:**
-    Powered by `facebook/mbart-large-50-many-to-many-mmt` via Hugging Face Inference.
+*   **Text Translation (Local Backend):**
+    For direct text translation, we use our private **Hugging Face mBART** instance on the backend for privacy and control.
     ```javascript
-    const translation = await hf.translation({
-        model: 'facebook/mbart-large-50-many-to-many-mmt',
-        inputs: contentToTranslate,
-        parameters: { src_lang, tgt_lang }
-    });
+    // summaryRoutes.js
+    const translation = await hf.translation({ model: 'facebook/mbart-large-50...' });
     ```
 
-## 5. Client-Side Features
+## 4. Client-Side Enhancements
 **File:** `client/src/pages/Summarize.jsx`
 
-*   **PDF Export:** Uses `html2canvas` + `jsPDF` to capture visual fidelity (fonts/emojis) instead of raw text.
-*   **TTS:** Integrated Stop Button logic in `WebSummaries.jsx`.
+*   **Printable PDF Export:**
+    Uses `html2canvas` to clone the summary content, apply "White Paper" styling (white background, black text), and generate a clean PDF.
+    ```javascript
+    const clone = element.cloneNode(true);
+    Object.assign(clone.style, { backgroundColor: '#ffffff', color: '#000000', ... });
+    ```
+*   **Multi-Language TTS:**
+    Features a dual-engine TTS system:
+    1.  **Local**: Tries to find a matching OS voice.
+    2.  **Cloud Fallback**: Connects to Google Cloud TTS for missing languages (e.g., Hindi).
 
-## 6. Environment Variables Reference
+## 5. Environment Variables Reference
 Ensure these are set in your `.env` files:
 
 *   **Server:** `OPENAI_API_KEY`, `HP_TOKEN`, `CLOUD_NAME`, `API_KEY`, `API_SECRET`

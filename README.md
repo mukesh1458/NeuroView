@@ -11,16 +11,16 @@
 ## 🚀 Key Features
 
 ### 1. **AI Image Generation (NeuroArt)**
-*   **Powered By**: **OpenAI DALL-E**.
+*   **Powered By**: **Stable Diffusion XL** (via Hugging Face).
 *   **Functionality**: Users can input text prompts to generate high-fidelity, imaginative images ("Visualize Your Dreams").
-*   **Key Tech**: `openai` SDK integrated securely on the backend.
+*   **Key Tech**: `@huggingface/inference` SDK integrated securely on the backend.
 *   **Community Showcase**: A masonry-grid gallery displaying community creations with **Advanced Search**, **Model/Color Fitlering**, and **staggered animations**.
 
 ### 2. **AI Text Intelligence (NeuroSense)**
-*   **Summarizer & Translator**: Instantly condenses long articles or translates them into over 50 languages (`mbart-large-50`).
+*   **Summarizer & Translator**: Instantly condenses long articles or translates them into over 15 languages using **Facebook BART** & **MBART-50**.
 *   **Intelligent Web Scraper**: Powered by `cheerio`, it filters out ads, scripts, and noise to extract only meaningful content from URLs.
-*   **Smart Language Detection**: Automatically detects the source language (using `franc`) for accurate translation of meaningful content provided in any language.
-*   **Advanced Export**: "What You See Is What You Get" PDF export (`html2canvas`) preserving emojis and foreign scripts.
+*   **Smart Language Detection**: Automatically handles various input languages.
+*   **Advanced Export**: "What You See Is What You Get" PDF export preserving emojis and foreign scripts.
 *   **Web Summaries**: A dedicated community section to share and browse interesting text summaries.
 
 ### 3. **Premium "Anti-Gravity" UI/UX**
@@ -32,7 +32,7 @@
 *   **🔐 User Authentication**: Secure Login/Register system with JWT validation and personalized profiles.
 *   **🌲 Remix Genealogy**: Visualize the "Family Tree" of any image! Click the lightning bolt to see the Parent → Current → Children relationships in a stunning interactive modal.
 *   **🎨 Auto-Palette**: AI automatically extracts the **5 Dominant Colors** from every generated image and displays them as a visual palette.
-*   **🔍 Advanced Filtering**: Find the perfect inspiration by filtering posts by **AI Model** (Stable Diffusion, DALL-E) or **Dominant Color**.
+*   **🔍 Advanced Filtering**: Find the perfect inspiration by filtering posts by **AI Model** or **Dominant Color**.
 *   **📂 Mood Boards (Collections)**: Organize your favorite inspirations into curated, private or public boards.
 *   **👤 User Profiles**: A dedicated space to manage your Creations, Remixes, and Collections.
 
@@ -45,7 +45,7 @@
 *   **Database**: MongoDB (Schemaless flexibility for Art & Text).
 *   **Security**: BCrypt (Hashing), JWT (Sessions), Nodemailer (Verification).
 *   **Cloud Storage**: Cloudinary (Image hosting).
-*   **AI Integration**: OpenAI (Images), Hugging Face (Translation/Summarization).
+*   **AI Integration**: Hugging Face (Images, Translation, Summarization).
 
 ---
 
@@ -56,8 +56,7 @@
 1.  **Node.js (v18+)**
 2.  **MongoDB Compass (Local)**
 3.  **Cloudinary Account**
-4.  **Hugging Face API Token** (`HP_TOKEN`)
-5.  **OpenAI API Key** (`OPENAI_API_KEY`)
+4.  **Hugging Face API Token** (`HP_TOKEN`) (Free)
 
 ### 1. Clone the Repository
 ```bash

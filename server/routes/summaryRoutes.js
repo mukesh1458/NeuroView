@@ -1,33 +1,20 @@
 import express from "express";
 import * as dotenv from 'dotenv';
-import { HfInference } from '@huggingface/inference';
-import fetch from 'node-fetch';
-import { franc } from 'franc';
 import * as cheerio from 'cheerio';
+import { HfInference } from "@huggingface/inference";
+// import fetch from 'node-fetch'; // Native in Node 18+
 
 dotenv.config();
 
 const router = express.Router();
-const hf = new HfInference(process.env.HP_TOKEN);
 
-// ISO 639-3 to mBART-50 code mapping
-const isoToMbart = {
-    'arb': 'ar_AR', 'ces': 'cs_CZ', 'deu': 'de_DE', 'eng': 'en_XX', 'spa': 'es_XX',
-    'est': 'et_EE', 'fin': 'fi_FI', 'fra': 'fr_XX', 'guj': 'gu_IN', 'hin': 'hi_IN',
-    'ita': 'it_IT', 'jpn': 'ja_XX', 'kaz': 'kk_KZ', 'kor': 'ko_KR', 'lit': 'lt_LT',
-    'lav': 'lv_LV', 'mya': 'my_MM', 'nep': 'ne_NP', 'nld': 'nl_XX', 'ron': 'ro_RO',
-    'rus': 'ru_RU', 'sin': 'si_LK', 'tur': 'tr_TR', 'vie': 'vi_VN', 'zho': 'zh_CN',
-    'afr': 'af_ZA', 'aze': 'az_AZ', 'ben': 'bn_IN', 'fas': 'fa_IR', 'heb': 'he_IL',
-    'hrv': 'hr_HR', 'ind': 'id_ID', 'kat': 'ka_GE', 'khm': 'km_KH', 'mkd': 'mk_MK',
-    'mal': 'ml_IN', 'mon': 'mn_MN', 'mar': 'mr_IN', 'pol': 'pl_PL', 'pus': 'ps_AF',
-    'por': 'pt_XX', 'swe': 'sv_SE', 'swa': 'sw_KE', 'tam': 'ta_IN', 'tel': 'te_IN',
-    'tha': 'th_TH', 'tgl': 'tl_XX', 'ukr': 'uk_UA', 'urd': 'ur_PK', 'xho': 'xh_ZA',
-    'glg': 'gl_ES', 'slv': 'sl_SI'
-};
+// Initialize HuggingFace Inference
+const hf = new HfInference(process.env.HP_TOKEN);
 
 // Robust Helper to fetch and extract text
 const fetchAndCleanUrl = async (url) => {
     try {
+        console.log(`[Scraper] Fetching ${url}...`);
         const response = await fetch(url, {
             headers: {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -42,31 +29,33 @@ const fetchAndCleanUrl = async (url) => {
         const $ = cheerio.load(html);
 
         // Remove script, style, and irrelevant elements
-        $('script, style, nav, footer, header, aside, .ads, .advertisement').remove();
+        $('script, style, nav, footer, header, aside, .ads, .advertisement, noscript, iframe').remove();
 
-        // Wikipedia/MediaWiki Specific Cleanup
-        $('.mw-editsection, .reference, .noprint, .mw-jump-link, .infobox, table').remove();
-        $('sup').remove(); // Remove footnote references [1][2]
-
-        // Extract text from paragraphs, headings, and lists
         let extractedText = "";
 
-        // Prioritize article body if possible
-        const mainContent = $('article, #bodyContent, #content, main, .main-content');
-        const source = mainContent.length > 0 ? mainContent : $('body');
+        // Target Main Content specifically
+        const selectors = ['article', 'main', '.main-content', '#content', '#bodyContent', 'body'];
+        let source;
 
+        for (const sel of selectors) {
+            if ($(sel).length > 0) {
+                source = $(sel);
+                break;
+            }
+        }
+        if (!source) source = $('body');
+
+        // Extract paragraphs and headings
         source.find('p, h1, h2, h3, h4, h5, h6, li').each((i, el) => {
             const text = $(el).text().trim();
-            // Skip very short lines that are likely navigation or trash (e.g. "v t e")
             if (text.length > 20) {
-                extractedText += text + " ";
+                extractedText += text + ". ";
             }
         });
 
-        // Cleanup whitespace
-        const finalClean = extractedText.replace(/\s+/g, ' ').trim();
-        console.log("Scraped Text Preview (First 200 chars):", finalClean.substring(0, 200));
-        return finalClean;
+        // Cleanup
+        // Limit to ~3000 chars to avoid overloading the free HF model
+        return extractedText.replace(/\s+/g, ' ').replace(/\.\./g, '.').trim().substring(0, 3000);
 
     } catch (error) {
         console.error("Scraping Error:", error);
@@ -76,118 +65,109 @@ const fetchAndCleanUrl = async (url) => {
 
 router.post('/summary', async (req, res) => {
     try {
-        const { text, url } = req.body;
-        let contentToSummarize = text;
+        let { url, text } = req.body;
 
+        // 1. If URL, scrape it first
         if (url) {
             try {
-                const scraped = await fetchAndCleanUrl(url);
-                if (scraped.length > 50) {
-                    contentToSummarize = scraped;
-                }
-
-                // Truncate (BART max is ~1024 tokens)
-                if (contentToSummarize.length > 3000) {
-                    contentToSummarize = contentToSummarize.substring(0, 3000);
-                }
-            } catch (fetchError) {
-                return res.status(400).json({ success: false, message: "Failed to fetch content from URL." });
+                text = await fetchAndCleanUrl(url);
+                console.log(`[Scraper] Extracted ${text.length} chars.`);
+            } catch (e) {
+                return res.status(400).json({ success: false, message: "Failed to scrape URL. Please try pasting text instead." });
             }
         }
 
-        if (!contentToSummarize || contentToSummarize.length < 50) {
-            return res.status(400).json({ success: false, message: "Content too short or empty." });
+        if (!text || text.length < 50) {
+            return res.status(400).json({ success: false, message: "Content too short or empty to summarize." });
         }
 
-        const summary = await hf.summarization({
-            model: 'sshleifer/distilbart-cnn-12-6',
-            inputs: contentToSummarize,
+        console.log(`[HF] Summarizing (${text.length} chars)...`);
+
+        // 2. Summarize using BART
+        const result = await hf.summarization({
+            model: 'facebook/bart-large-cnn',
+            inputs: text,
             parameters: {
-                max_length: 150,
-                min_length: 50,
-                repetition_penalty: 1.2, // Prevent loops
-                wait_for_model: true
+                max_length: 130,
+                min_length: 30
             }
         });
 
-        const summaryText = summary.summary_text || (summary[0] && summary[0].summary_text);
+        const summaryText = result.summary_text || (result.length > 0 ? result[0].summary_text : "");
+
+        if (!summaryText) throw new Error("AI returned empty summary.");
+
         res.status(200).json({ success: true, summary: summaryText });
 
     } catch (error) {
         console.error("Summarization Error:", error);
-        if (error.message.includes("index out of range") || error.message.includes("500") || error.message.includes("503")) {
-            try {
-                // Fallback Logic
-                const summary = await hf.summarization({
-                    model: 'sshleifer/distilbart-cnn-12-6',
-                    inputs: contentToSummarize,
-                    parameters: {
-                        max_length: 150,
-                        min_length: 30,
-                        repetition_penalty: 1.5 // Stronger penalty on retry
-                    }
-                });
-                const summaryText = summary.summary_text || (summary[0] && summary[0].summary_text);
-                return res.status(200).json({ success: true, summary: summaryText });
-            } catch (retryError) { }
-        }
-        res.status(500).json({ success: false, message: "AI Service Busy." });
+        res.status(500).json({ success: false, message: "Summarization failed. Try shorter text." });
     }
 });
 
 router.post('/translate', async (req, res) => {
     try {
-        const { text, target_lang, url } = req.body;
-        let contentToTranslate = text;
-        const targetLangCode = target_lang || 'en';
+        let { url, text, target_lang } = req.body;
 
-        if (url) {
+        if (url && !text) {
             try {
-                const scraped = await fetchAndCleanUrl(url);
-                if (scraped.length > 50) {
-                    contentToTranslate = scraped.substring(0, 3000);
-                }
+                text = await fetchAndCleanUrl(url);
             } catch (e) {
-                return res.status(400).json({ success: false, message: "Failed to fetch URL" });
+                return res.status(400).json({ success: false, message: "Failed to scrape URL." });
             }
         }
 
-        if (!contentToTranslate) return res.status(400).json({ success: false, message: "No content." });
+        if (!text) {
+            return res.status(400).json({ success: false, message: "No content to translate." });
+        }
 
-        // Language Detection
-        const detectedIso = franc(contentToTranslate);
-        const src_lang = isoToMbart[detectedIso] || 'en_XX';
+        // Truncate for Translation (MBART has limits, usually 1024 tokens)
+        if (text.length > 1000) text = text.substring(0, 1000);
 
-        console.log(`Translation Request: Detected ${detectedIso} -> Mapped ${src_lang} | Target ${targetLangCode}`);
+        const targetCode = target_lang?.toLowerCase() || 'hindi';
 
-        const langMapFinal = {
-            'en': 'en_XX', 'fr': 'fr_XX', 'es': 'es_XX', 'de': 'de_DE',
-            'it': 'it_IT', 'pt': 'pt_XX', 'hi': 'hi_IN', 'zh': 'zh_CN',
-            'ja': 'ja_XX', 'ru': 'ru_RU', 'ar': 'ar_AR', 'ko': 'ko_KR',
-            'ta': 'ta_IN', 'te': 'te_IN'
+        const langMap = {
+            'hindi': 'hi_IN', 'hi': 'hi_IN',
+            'spanish': 'es_XX', 'es': 'es_XX',
+            'french': 'fr_XX', 'fr': 'fr_XX',
+            'german': 'de_DE', 'de': 'de_DE',
+            'italian': 'it_IT', 'it': 'it_IT',
+            'english': 'en_XX', 'en': 'en_XX',
+            'japanese': 'ja_XX', 'ja': 'ja_XX',
+            'russian': 'ru_RU', 'ru': 'ru_RU',
+            'chinese': 'zh_CN', 'zh': 'zh_CN',
+            'arabic': 'ar_AR', 'ar': 'ar_AR',
+            'portuguese': 'pt_XX', 'pt': 'pt_XX',
+            'korean': 'ko_KR', 'ko': 'ko_KR'
         };
 
-        const tgt = langMapFinal[targetLangCode] || 'en_XX';
+        let tgt_lang = langMap[targetCode];
 
-        const translation = await hf.translation({
+        if (!tgt_lang) {
+            console.warn(`[HF] Language '${targetCode}' not found. Defaulting to Hindi.`);
+            tgt_lang = 'hi_IN';
+        }
+
+        console.log(`[HF] Translating to ${tgt_lang} (${text.length} chars)...`);
+
+        const result = await hf.translation({
             model: 'facebook/mbart-large-50-many-to-many-mmt',
-            inputs: contentToTranslate,
+            inputs: text,
             parameters: {
-                src_lang: src_lang,
-                tgt_lang: tgt,
-                repetition_penalty: 1.2 // Added penalty
+                src_lang: "en_XX",
+                tgt_lang: tgt_lang
             }
         });
 
-        const translatedText = translation.translation_text || (translation[0] && translation[0].translation_text);
+        const translatedText = result.translation_text || (Array.isArray(result) && result[0]?.translation_text);
+
+        if (!translatedText) throw new Error("Translation returned empty.");
+
         res.status(200).json({ success: true, summary: translatedText });
 
     } catch (error) {
         console.error("Translation Error:", error);
-        if (error.message.includes("Model too busy") || error.message.includes("503")) {
-            return res.status(503).json({ success: false, message: "Service busy." });
-        }
-        res.status(500).json({ success: false, message: "Translation failed." });
+        res.status(500).json({ success: false, message: "Translation failed (HuggingFace)." });
     }
 });
 
