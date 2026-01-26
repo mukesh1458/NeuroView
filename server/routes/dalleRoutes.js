@@ -1,32 +1,33 @@
 import express from "express";
-import * as dotenv from 'dotenv'
-import { HfInference } from '@huggingface/inference';
+import * as dotenv from 'dotenv';
+import OpenAI from "openai";
 
 dotenv.config();
 
-const router = express.Router()
-const hf = new HfInference(process.env.HP_TOKEN);
+const router = express.Router();
+
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+});
 
 router.post('/dalle', async (req, res) => {
-    const { prompt } = req.body;
-    console.log("Prompt:", prompt);
-
     try {
-        // Using the SDK automatically handles the correct endpoint
-        const response = await hf.textToImage({
-            model: 'stabilityai/stable-diffusion-xl-base-1.0',
-            inputs: prompt,
+        const { prompt } = req.body;
+        console.log("Generating image for prompt:", prompt);
+
+        const aiResponse = await openai.images.generate({
+            prompt,
+            n: 1,
+            size: '1024x1024',
+            response_format: 'b64_json',
         });
 
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
-        res.set("Content-Type", "image/jpeg");
-        res.status(200).send(buffer);
+        const image = aiResponse.data[0].b64_json;
+        res.status(200).json({ photo: image });
 
     } catch (error) {
-        console.error("Error generating image:", error);
-        res.status(500).json({ success: false, message: error.message });
+        console.error("OpenAI Error:", error);
+        res.status(500).send(error?.response?.data?.error?.message || error.message);
     }
 });
 

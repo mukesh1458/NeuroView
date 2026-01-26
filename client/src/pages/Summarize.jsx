@@ -9,6 +9,7 @@ import { FiLink2, FiCopy, FiVolume2, FiDownload, FiClock, FiStopCircle, FiArrowR
 import { TiTick } from 'react-icons/ti';
 import { AiOutlineDelete, AiOutlineHistory } from 'react-icons/ai';
 import { jsPDF } from "jspdf";
+import html2canvas from 'html2canvas';
 
 import Loader from '../components/Loader';
 
@@ -40,8 +41,6 @@ const Typewriter = ({ text, speed = 10, onComplete }) => {
   return <p className='font-inter text-zinc-300 leading-relaxed text-sm sm:text-base selection:bg-purple-500/30 whitespace-pre-wrap animate-fade-in-up'>{displayedText}<span className="animate-pulse text-purple-400">|</span></p>;
 };
 
-// ... (keep CheckImports or assume they are there, I will just add useNavigate to top if missing, currently logic assumes replacment of body)
-
 const Summarize = () => {
   const navigate = useNavigate();
   const [article, setArticle] = useState({ data: "", summary: "", language: "" });
@@ -54,10 +53,25 @@ const Summarize = () => {
   // TTS State
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [readingCompleted, setReadingCompleted] = useState(false);
+  const [availableVoices, setAvailableVoices] = useState([]);
+
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        setAvailableVoices(voices);
+      }
+    };
+
+    loadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
 
 
 
-  const actions = ['Summarize', 'Summarize And Translate', 'Translate'];
+  const actions = ['Summarize And Translate', 'Translate'];
 
   // Helper: Calculate Reading Time
   const getReadingTime = (text) => {
@@ -67,53 +81,155 @@ const Summarize = () => {
     return Math.ceil(words / wpm);
   };
 
-  // Handler: Text to Speech
+  // Handler: Text to Speech (Dual Engine: Local + Cloud Fallback)
   const handleSpeak = () => {
-    if ('speechSynthesis' in window) {
-      if (isSpeaking) {
-        window.speechSynthesis.cancel();
-        setIsSpeaking(false);
-      } else {
-        const utterance = new SpeechSynthesisUtterance(article.summary);
-        // Try to find a better voice
-        const voices = window.speechSynthesis.getVoices();
-        const preferredVoice = voices.find(voice => voice.name.includes("Google") || voice.name.includes("Female"));
-        if (preferredVoice) utterance.voice = preferredVoice;
-
-        utterance.onend = () => setIsSpeaking(false);
-        window.speechSynthesis.speak(utterance);
-        setIsSpeaking(true);
+    // 1. Cancel any current speaking
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      if (window.audioChunk) {
+        window.audioChunk.pause();
+        window.audioChunk = null;
       }
-    } else {
-      toast.error("Text-to-Speech not supported in this browser.");
+      setIsSpeaking(false);
+      return;
     }
+
+    const targetLang = article.language || 'en';
+    const text = article.summary;
+
+    // 2. CHECK LOCAL VOICES FIRST
+    let localVoice = null;
+    const voices = window.speechSynthesis.getVoices();
+    localVoice = voices.find(v => v.lang.startsWith(targetLang));
+
+    // 3. IF LOCAL VOICE EXISTS, USE IT (Preferred for performance)
+    if (localVoice || targetLang === 'en') {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = targetLang;
+      if (localVoice) utterance.voice = localVoice;
+
+      // Quality of life: English default fallback
+      if (!localVoice && targetLang === 'en') {
+        const defaultVoice = voices.find(v => v.name.includes("Google") || v.name.includes("Female"));
+        if (defaultVoice) utterance.voice = defaultVoice;
+      }
+
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+
+      window.speechSynthesis.speak(utterance);
+      setIsSpeaking(true);
+      toast.success(`Reading locally in ${targetLang}...`);
+      return;
+    }
+
+    // 4. CLOUD FALLBACK (For Hindi/others missing locally)
+    // "Install" behavior simulation via Google TTS
+    toast("Connecting to Cloud TTS engine...", { icon: '☁️' });
+    setIsSpeaking(true);
+
+    // Split text into safe chunks (Google API limit ~200 chars)
+    // We split by standard punctuation to keep sentences intact
+    const chunks = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+
+    let currentChunkIndex = 0;
+
+    const playNextChunk = () => {
+      if (currentChunkIndex >= chunks.length) {
+        setIsSpeaking(false);
+        return;
+      }
+
+      const chunk = chunks[currentChunkIndex].trim();
+      if (!chunk) {
+        currentChunkIndex++;
+        playNextChunk();
+        return;
+      }
+
+      // Use Google Translate TTS internal API
+      const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${targetLang}&q=${encodeURIComponent(chunk)}`;
+      const audio = new Audio(url);
+      window.audioChunk = audio; // Save ref to pause if needed
+
+      audio.onended = () => {
+        currentChunkIndex++;
+        playNextChunk();
+      };
+
+      audio.onerror = (e) => {
+        console.error("Cloud TTS failed for chunk", e);
+        toast.error("Cloud TTS Network Error");
+        setIsSpeaking(false);
+      };
+
+      audio.play().catch(e => {
+        console.error("Audio Play Error", e);
+        setIsSpeaking(false);
+      });
+    };
+
+    // Start the queue
+    playNextChunk();
   };
 
-  // Handler: PDF Export
-  const handleExportPDF = () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 15;
-    const maxLineWidth = pageWidth - margin * 2;
+  // Handler: PDF Export (Robust with html2canvas & White Styling)
+  const handleExportPDF = async () => {
+    const element = document.getElementById('summary-content');
+    if (!element) return toast.error("Nothing to export!");
 
-    doc.setFontSize(22);
-    doc.setTextColor(40, 40, 40);
-    doc.text("NeuroView Summary", margin, 20);
+    // Create a clone to manipulate styles for PDF (White Background, Black Text)
+    const clone = element.cloneNode(true);
 
-    doc.setFontSize(11);
-    doc.setTextColor(100);
+    // Apply temporary print-friendly styles
+    Object.assign(clone.style, {
+      position: 'fixed',
+      top: '-9999px',
+      left: '-9999px',
+      backgroundColor: '#ffffff',
+      color: '#000000',
+      width: '210mm', // A4 width
+      minHeight: '297mm',
+      padding: '20mm',
+      fontSize: '12pt',
+      zIndex: '-1000'
+    });
 
-    let splitText = doc.splitTextToSize(article.summary, maxLineWidth);
-    doc.text(splitText, margin, 35);
+    // We need to ensure children texts are also black, as Tailwind classes might override inheritance
+    // This simple loop helps, though complex deep nesting might need a recursive function
+    // For our summary (p tags), this usually works or generic CSS rule.
+    const descendants = clone.getElementsByTagName('*');
+    for (let child of descendants) {
+      child.style.color = '#000000';
+    }
 
-    // Add footer
-    doc.setFontSize(9);
-    doc.setTextColor(150);
-    const date = new Date().toLocaleDateString();
-    doc.text(`Generated on ${date} • Source: ${article.data.substring(0, 50)}...`, margin, doc.internal.pageSize.getHeight() - 10);
+    document.body.appendChild(clone);
 
-    doc.save("neuroview-summary.pdf");
-    toast.success("PDF Downloaded!");
+    try {
+      // Capture the styled clone
+      const canvas = await html2canvas(clone, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      // Handle Multi-page if needed, or just fit to one if short.
+      // For now, scaling to width.
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save("neuroview-summary.pdf");
+      toast.success("PDF Downloaded!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to generate PDF");
+    } finally {
+      // Cleanup
+      document.body.removeChild(clone);
+    }
   };
 
   const [name, setName] = useState("");
@@ -177,8 +293,9 @@ const Summarize = () => {
   const urlRegex = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}([-a-zA-Z0-9@:%_\+.~#?&//=]*)?$/;
 
   const summarizeFromUrl = async (url, targetLang) => {
-    const params = { url, length: '3' };
-    if (targetLang) params.lang = targetLang; // Pass language code if provided
+    // INCREASED LENGTH to 6 for better accuracy/depth
+    const params = { url, length: '6' };
+    if (targetLang) params.lang = targetLang;
 
     const options = {
       method: 'GET',
@@ -191,13 +308,6 @@ const Summarize = () => {
     };
     return (await axios.request(options)).data;
   }
-
-  // Note: 'text-summarize-pro' might not support translation directly. 
-  // If use selects "Translate" with PASTED TEXT, we might need a different approach or just warn.
-  // However, 'article-extractor' is robust. Let's try to use it for text too if possible? No, it takes URL.
-  // We will assume for now user primarily uses URL for complex Translate+Sum tasks, or we fallback to just Summary for text if no Text-Translating API is available in this key.
-  // Actually, 'google-translate-rapidapi' is common, but requires different subscription.
-  // For this fix, we will enable it for URL (which is the main robust tool here) and add a check.
 
   const summarizeFromText = async (text) => {
     // Basic text summarizer (no translation in this specific endpoint usually)
@@ -227,6 +337,18 @@ const Summarize = () => {
     setLoading(true);
     setReadingCompleted(false);
 
+    // AUTO-DETECT: If action implies translation but no lang selected, default to 'en'
+    let selectedLang = lang;
+    if ((action === "Translate" || action === "Summarize And Translate") && !selectedLang) {
+      selectedLang = 'en';
+      setLang('en');
+    }
+
+    // For pure summarization, we assume English output for now (BART model)
+    if (action === "Summarize") {
+      selectedLang = 'en';
+    }
+
     try {
       const isURL = urlRegex.test(article.data);
       const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:8080/api/v1';
@@ -240,7 +362,7 @@ const Summarize = () => {
           body: JSON.stringify({
             text: isURL ? null : article.data,
             url: isURL ? article.data : null,
-            target_lang: lang
+            target_lang: selectedLang // Use extracted selectedLang
           })
         });
 
@@ -265,7 +387,8 @@ const Summarize = () => {
       }
 
       if (result) {
-        const newArticle = { ...article, summary: result };
+        // SAVE LANGUAGE STATE so TTS knows what to use
+        const newArticle = { ...article, summary: result, language: selectedLang };
         const updated = [newArticle, ...allArticles];
         setArticle(newArticle);
         setAllArticles(updated);
@@ -419,8 +542,8 @@ const Summarize = () => {
                     </div>
                   </div>
 
-                  {/* Content Area */}
-                  <div className="p-6 bg-black/10 flex-1 rounded-b-xl overflow-y-auto max-h-[600px] custom-scrollbar">
+                  {/* Content Area - ID ADDED FOR PDF EXPORT */}
+                  <div id="summary-content" className="p-6 bg-black/10 flex-1 rounded-b-xl overflow-y-auto max-h-[600px] custom-scrollbar">
                     {readingCompleted ? (
                       <p className='font-inter text-zinc-300 leading-relaxed text-sm sm:text-base selection:bg-purple-500/30 whitespace-pre-wrap animate-fade-in-up'>
                         {article.summary}

@@ -2,19 +2,76 @@ import express from "express";
 import * as dotenv from 'dotenv';
 import { HfInference } from '@huggingface/inference';
 import fetch from 'node-fetch';
+import { franc } from 'franc';
+import * as cheerio from 'cheerio';
 
 dotenv.config();
 
 const router = express.Router();
 const hf = new HfInference(process.env.HP_TOKEN);
 
-// Helper to strip HTML tags (Basic)
-const stripHtml = (html) => {
-    return html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-        .replace(/<[^>]+>/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
+// ISO 639-3 to mBART-50 code mapping
+const isoToMbart = {
+    'arb': 'ar_AR', 'ces': 'cs_CZ', 'deu': 'de_DE', 'eng': 'en_XX', 'spa': 'es_XX',
+    'est': 'et_EE', 'fin': 'fi_FI', 'fra': 'fr_XX', 'guj': 'gu_IN', 'hin': 'hi_IN',
+    'ita': 'it_IT', 'jpn': 'ja_XX', 'kaz': 'kk_KZ', 'kor': 'ko_KR', 'lit': 'lt_LT',
+    'lav': 'lv_LV', 'mya': 'my_MM', 'nep': 'ne_NP', 'nld': 'nl_XX', 'ron': 'ro_RO',
+    'rus': 'ru_RU', 'sin': 'si_LK', 'tur': 'tr_TR', 'vie': 'vi_VN', 'zho': 'zh_CN',
+    'afr': 'af_ZA', 'aze': 'az_AZ', 'ben': 'bn_IN', 'fas': 'fa_IR', 'heb': 'he_IL',
+    'hrv': 'hr_HR', 'ind': 'id_ID', 'kat': 'ka_GE', 'khm': 'km_KH', 'mkd': 'mk_MK',
+    'mal': 'ml_IN', 'mon': 'mn_MN', 'mar': 'mr_IN', 'pol': 'pl_PL', 'pus': 'ps_AF',
+    'por': 'pt_XX', 'swe': 'sv_SE', 'swa': 'sw_KE', 'tam': 'ta_IN', 'tel': 'te_IN',
+    'tha': 'th_TH', 'tgl': 'tl_XX', 'ukr': 'uk_UA', 'urd': 'ur_PK', 'xho': 'xh_ZA',
+    'glg': 'gl_ES', 'slv': 'sl_SI'
+};
+
+// Robust Helper to fetch and extract text
+const fetchAndCleanUrl = async (url) => {
+    try {
+        const response = await fetch(url, {
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
+        }
+
+        const html = await response.text();
+        const $ = cheerio.load(html);
+
+        // Remove script, style, and irrelevant elements
+        $('script, style, nav, footer, header, aside, .ads, .advertisement').remove();
+
+        // Wikipedia/MediaWiki Specific Cleanup
+        $('.mw-editsection, .reference, .noprint, .mw-jump-link, .infobox, table').remove();
+        $('sup').remove(); // Remove footnote references [1][2]
+
+        // Extract text from paragraphs, headings, and lists
+        let extractedText = "";
+
+        // Prioritize article body if possible
+        const mainContent = $('article, #bodyContent, #content, main, .main-content');
+        const source = mainContent.length > 0 ? mainContent : $('body');
+
+        source.find('p, h1, h2, h3, h4, h5, h6, li').each((i, el) => {
+            const text = $(el).text().trim();
+            // Skip very short lines that are likely navigation or trash (e.g. "v t e")
+            if (text.length > 20) {
+                extractedText += text + " ";
+            }
+        });
+
+        // Cleanup whitespace
+        const finalClean = extractedText.replace(/\s+/g, ' ').trim();
+        console.log("Scraped Text Preview (First 200 chars):", finalClean.substring(0, 200));
+        return finalClean;
+
+    } catch (error) {
+        console.error("Scraping Error:", error);
+        throw error;
+    }
 };
 
 router.post('/summary', async (req, res) => {
@@ -24,40 +81,16 @@ router.post('/summary', async (req, res) => {
 
         if (url) {
             try {
-                const response = await fetch(url, {
-                    headers: {
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
+                const scraped = await fetchAndCleanUrl(url);
+                if (scraped.length > 50) {
+                    contentToSummarize = scraped;
                 }
 
-                const html = await response.text();
-
-                // Improved extraction: prefer <p> tags for article content
-                // Regex finding all paragraphs
-                const paragraphRegex = /<p[^>]*>(.*?)<\/p>/gi;
-                let extractedText = "";
-                let match;
-                while ((match = paragraphRegex.exec(html)) !== null) {
-                    extractedText += match[1] + " ";
-                }
-
-                // If paragraphs found, use them; otherwise fallback to stripping body
-                if (extractedText.length > 200) {
-                    contentToSummarize = stripHtml(extractedText);
-                } else {
-                    contentToSummarize = stripHtml(html);
-                }
-
-                // Truncate if too long for the model (BART has limits, usually 1024 tokens ~ 3000 chars safe bet to truncate)
-                if (contentToSummarize.length > 4000) {
-                    contentToSummarize = contentToSummarize.substring(0, 4000);
+                // Truncate (BART max is ~1024 tokens)
+                if (contentToSummarize.length > 3000) {
+                    contentToSummarize = contentToSummarize.substring(0, 3000);
                 }
             } catch (fetchError) {
-                console.error("Error fetching URL:", fetchError);
                 return res.status(400).json({ success: false, message: "Failed to fetch content from URL." });
             }
         }
@@ -72,35 +105,33 @@ router.post('/summary', async (req, res) => {
             parameters: {
                 max_length: 150,
                 min_length: 50,
+                repetition_penalty: 1.2, // Prevent loops
+                wait_for_model: true
             }
         });
 
-        // HF returns object or array depending on task. Summarization usually { summary_text: "..." }
-        // The SDK might return { summary_text: "..." } or [{ summary_text: "..." }]
         const summaryText = summary.summary_text || (summary[0] && summary[0].summary_text);
-
         res.status(200).json({ success: true, summary: summaryText });
 
     } catch (error) {
         console.error("Summarization Error:", error);
-
-        // Retry with a fallback model if the primary one fails
         if (error.message.includes("index out of range") || error.message.includes("500") || error.message.includes("503")) {
             try {
-                console.log("Retrying with fallback model (distilbart-cnn-12-6)...");
+                // Fallback Logic
                 const summary = await hf.summarization({
                     model: 'sshleifer/distilbart-cnn-12-6',
                     inputs: contentToSummarize,
-                    parameters: { max_length: 150, min_length: 30 }
+                    parameters: {
+                        max_length: 150,
+                        min_length: 30,
+                        repetition_penalty: 1.5 // Stronger penalty on retry
+                    }
                 });
                 const summaryText = summary.summary_text || (summary[0] && summary[0].summary_text);
                 return res.status(200).json({ success: true, summary: summaryText });
-            } catch (retryError) {
-                console.error("Fallback Summarization Error:", retryError);
-            }
+            } catch (retryError) { }
         }
-
-        res.status(500).json({ success: false, message: "AI Service Busy. Please try again with shorter text." });
+        res.status(500).json({ success: false, message: "AI Service Busy." });
     }
 });
 
@@ -108,31 +139,13 @@ router.post('/translate', async (req, res) => {
     try {
         const { text, target_lang, url } = req.body;
         let contentToTranslate = text;
-        const targetLangCode = target_lang || 'es'; // default to spanish if missing
+        const targetLangCode = target_lang || 'en';
 
         if (url) {
-            // ... reusing url fetch logic if needed, or simple error for now 
-            // Ideally refactor helper, but for speed keeping simple
             try {
-                const response = await fetch(url, {
-                    headers: {
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-                    }
-                });
-                if (!response.ok) throw new Error("Fetch failed");
-                const html = await response.text();
-
-                const paragraphRegex = /<p[^>]*>(.*?)<\/p>/gi;
-                let extractedText = "";
-                let match;
-                while ((match = paragraphRegex.exec(html)) !== null) {
-                    extractedText += match[1] + " ";
-                }
-
-                if (extractedText.length > 200) {
-                    contentToTranslate = stripHtml(extractedText).substring(0, 3000);
-                } else {
-                    contentToTranslate = stripHtml(html).substring(0, 3000);
+                const scraped = await fetchAndCleanUrl(url);
+                if (scraped.length > 50) {
+                    contentToTranslate = scraped.substring(0, 3000);
                 }
             } catch (e) {
                 return res.status(400).json({ success: false, message: "Failed to fetch URL" });
@@ -141,26 +154,17 @@ router.post('/translate', async (req, res) => {
 
         if (!contentToTranslate) return res.status(400).json({ success: false, message: "No content." });
 
-        // For simplicity with generic Inference API, we'll try 'Helsinki-NLP/opus-mt-en-{target}' dynamically or a big model.
-        // Let's use 'facebook/mbart-large-50-many-to-many-mmt' which is standard.
-        // inputs: text, parameters: { src_lang: "en_XX", tgt_lang: "fr_XX" }
+        // Language Detection
+        const detectedIso = franc(contentToTranslate);
+        const src_lang = isoToMbart[detectedIso] || 'en_XX';
 
-        // MAPPING ISO codes to mBART codes (Simplified subset)
-        const langMap = {
-            'en': 'en_XX', 'fr': 'fr_XX', 'es': 'es_XX', 'de': 'de_DE',
-            'it': 'it_IT', 'pt': 'pt_XX', 'hi': 'hi_IN', 'zh': 'zh_CN',
-            'ja': 'ja_XX', 'ru': 'ru_RU', 'ar': 'ar_AR', 'ko': 'ko_KR',
-            'pa': 'hi_IN' // Fallback for Punjabi (similar script/region) or leave default. mBART50 lacks 'pa'. Mapping to 'hi_IN' or 'en_XX' is safer. Let's map to hi_IN for closest regional match or just en. 
-            // Actually, let's strictly support what's there. 
-            // 'pa' is NOT in mBART-50.
-        };
-        // Correction: Simply don't map 'pa' -> falls back to 'en_XX' or handle explicitly.
-        // Let's at least add 'ar' and 'ko' which ARE supported.
+        console.log(`Translation Request: Detected ${detectedIso} -> Mapped ${src_lang} | Target ${targetLangCode}`);
 
         const langMapFinal = {
             'en': 'en_XX', 'fr': 'fr_XX', 'es': 'es_XX', 'de': 'de_DE',
             'it': 'it_IT', 'pt': 'pt_XX', 'hi': 'hi_IN', 'zh': 'zh_CN',
-            'ja': 'ja_XX', 'ru': 'ru_RU', 'ar': 'ar_AR', 'ko': 'ko_KR'
+            'ja': 'ja_XX', 'ru': 'ru_RU', 'ar': 'ar_AR', 'ko': 'ko_KR',
+            'ta': 'ta_IN', 'te': 'te_IN'
         };
 
         const tgt = langMapFinal[targetLangCode] || 'en_XX';
@@ -169,22 +173,21 @@ router.post('/translate', async (req, res) => {
             model: 'facebook/mbart-large-50-many-to-many-mmt',
             inputs: contentToTranslate,
             parameters: {
-                src_lang: 'en_XX', // Assuming English source for now as per app intent
-                tgt_lang: tgt
+                src_lang: src_lang,
+                tgt_lang: tgt,
+                repetition_penalty: 1.2 // Added penalty
             }
         });
 
-        // HF Response: { translation_text: "..." } or [{ translation_text: "..." }]
         const translatedText = translation.translation_text || (translation[0] && translation[0].translation_text);
-        res.status(200).json({ success: true, summary: translatedText }); // Keeping key 'summary' for frontend compatibility
+        res.status(200).json({ success: true, summary: translatedText });
 
     } catch (error) {
         console.error("Translation Error:", error);
-        // Handle specific HF errors
         if (error.message.includes("Model too busy") || error.message.includes("503")) {
-            return res.status(503).json({ success: false, message: "Translation service is currently busy. Please try again." });
+            return res.status(503).json({ success: false, message: "Service busy." });
         }
-        res.status(500).json({ success: false, message: "Translation failed. Try simpler text." });
+        res.status(500).json({ success: false, message: "Translation failed." });
     }
 });
 

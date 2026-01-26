@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Loader from '../components/Loader';
-import { FiExternalLink, FiCopy, FiClock, FiDownload, FiVolume2 } from 'react-icons/fi';
+import { FiExternalLink, FiCopy, FiClock, FiDownload, FiVolume2, FiStopCircle } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { jsPDF } from "jspdf";
 
@@ -8,6 +8,7 @@ const WebSummaries = () => {
     const [loading, setLoading] = useState(false);
     const [allPosts, setAllPosts] = useState(null);
     const [searchText, setSearchText] = useState('');
+    const [speakingPostId, setSpeakingPostId] = useState(null); // Track which post is speaking
 
     const fetchPosts = async () => {
         setLoading(true);
@@ -40,9 +41,17 @@ const WebSummaries = () => {
         toast.success("Summary copied!");
     };
 
-    const handleSpeak = (text) => {
+    const handleSpeak = (text, postId) => {
         if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel(); // Stop any previous speech
+            // If clicking the same post that is currently speaking, STOP it.
+            if (speakingPostId === postId) {
+                window.speechSynthesis.cancel();
+                setSpeakingPostId(null);
+                return;
+            }
+
+            // Otherwise, stop usage and start new one
+            window.speechSynthesis.cancel();
 
             const utterance = new SpeechSynthesisUtterance(text);
 
@@ -58,7 +67,10 @@ const WebSummaries = () => {
             utterance.pitch = 0.9; // Slightly lower pitch for calmness
             utterance.rate = 0.95; // Slightly slower
 
+            utterance.onend = () => setSpeakingPostId(null);
+
             window.speechSynthesis.speak(utterance);
+            setSpeakingPostId(postId);
         } else {
             toast.error("Text-to-Speech not supported in this browser.");
         }
@@ -168,11 +180,11 @@ const WebSummaries = () => {
                                             </div>
                                             <div className="flex gap-2">
                                                 <button
-                                                    onClick={(e) => { e.stopPropagation(); handleSpeak(post.content); }}
-                                                    className="p-2 text-zinc-400 hover:text-pink-400 hover:bg-pink-400/10 rounded-lg transition-all"
-                                                    title="Listen (Text-to-Speech)"
+                                                    onClick={(e) => { e.stopPropagation(); handleSpeak(post.content, post._id); }}
+                                                    className={`p-2 rounded-lg transition-all ${speakingPostId === post._id ? 'text-red-400 bg-red-400/10' : 'text-zinc-400 hover:text-pink-400 hover:bg-pink-400/10'}`}
+                                                    title={speakingPostId === post._id ? "Stop Speaking" : "Listen (Text-to-Speech)"}
                                                 >
-                                                    <FiVolume2 size={16} />
+                                                    {speakingPostId === post._id ? <FiStopCircle size={16} className="animate-pulse" /> : <FiVolume2 size={16} />}
                                                 </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleCopy(post.content); }}
@@ -252,10 +264,11 @@ const WebSummaries = () => {
                         {/* Footer Actions */}
                         <div className="p-4 border-t border-white/10 bg-white/5 flex justify-end gap-3">
                             <button
-                                onClick={() => handleSpeak(selectedPost.content)}
-                                className="flex items-center gap-2 px-4 py-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-300 rounded-lg transition-colors border border-pink-500/20"
+                                onClick={() => handleSpeak(selectedPost.content, selectedPost._id)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors border ${speakingPostId === selectedPost._id ? 'bg-red-500/10 hover:bg-red-500/20 text-red-300 border-red-500/20' : 'bg-pink-500/10 hover:bg-pink-500/20 text-pink-300 border-pink-500/20'}`}
                             >
-                                <FiVolume2 /> Listen
+                                {speakingPostId === selectedPost._id ? <FiStopCircle /> : <FiVolume2 />}
+                                {speakingPostId === selectedPost._id ? "Stop" : "Listen"}
                             </button>
                             <button
                                 onClick={() => handleCopy(selectedPost.content)}

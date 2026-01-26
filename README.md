@@ -11,18 +11,17 @@
 ## 🚀 Key Features
 
 ### 1. **AI Image Generation (NeuroArt)**
-*   **Powered By**: Stable Diffusion models hosted on Hugging Face.
+*   **Powered By**: **OpenAI DALL-E**.
 *   **Functionality**: Users can input text prompts to generate high-fidelity, imaginative images ("Visualize Your Dreams").
-*   **Key Tech**: `@huggingface/inference` SDK integrated securely on the backend.
+*   **Key Tech**: `openai` SDK integrated securely on the backend.
 *   **Community Showcase**: A masonry-grid gallery displaying community creations with **Advanced Search**, **Model/Color Fitlering**, and **staggered animations**.
 
 ### 2. **AI Text Intelligence (NeuroSense)**
-*   **Summarizer**: Instantly condenses long articles or text blocks into concise, digestible summaries ("Study Smarter, Not Harder").
-*   **Hybrid Translation Engine**: 
-    *   **URLs**: Uses **RapidAPI** (`article-extractor-and-summarizer`) for robust web extraction and translation.
-    *   **Text**: Uses **Local Backend** (`Hugging Face mBART`) for unlimited text-to-text translation.
+*   **Summarizer & Translator**: Instantly condenses long articles or translates them into over 50 languages (`mbart-large-50`).
+*   **Intelligent Web Scraper**: Powered by `cheerio`, it filters out ads, scripts, and noise to extract only meaningful content from URLs.
+*   **Smart Language Detection**: Automatically detects the source language (using `franc`) for accurate translation of meaningful content provided in any language.
+*   **Advanced Export**: "What You See Is What You Get" PDF export (`html2canvas`) preserving emojis and foreign scripts.
 *   **Web Summaries**: A dedicated community section to share and browse interesting text summaries.
-*   **UI**: Features a split-screen glassmorphism interface for input/output comparison.
 
 ### 3. **Premium "Anti-Gravity" UI/UX**
 *   **Theme**: "Mineral Dark" aesthetic with deep, living gradients.
@@ -41,12 +40,12 @@
 
 ## 🛠️ Technology Stack
 
-*   **Frontend**: React.js (Vite), Tailwind CSS, Framer Motion, ColorThief (Analysis).
-*   **Backend**: Node.js, Express.js.
+*   **Frontend**: React.js (Vite), Tailwind CSS, Framer Motion, ColorThief (Analysis), html2canvas.
+*   **Backend**: Node.js, Express.js, Cheerio (Scraping), Franc (Language Detection).
 *   **Database**: MongoDB (Schemaless flexibility for Art & Text).
 *   **Security**: BCrypt (Hashing), JWT (Sessions), Nodemailer (Verification).
 *   **Cloud Storage**: Cloudinary (Image hosting).
-*   **AI Integration**: Hugging Face Inference API, RapidAPI.
+*   **AI Integration**: OpenAI (Images), Hugging Face (Translation/Summarization).
 
 ---
 
@@ -57,8 +56,8 @@
 1.  **Node.js (v18+)**
 2.  **MongoDB Compass (Local)**
 3.  **Cloudinary Account**
-4.  **Hugging Face API Token**
-5.  **RapidAPI Key**
+4.  **Hugging Face API Token** (`HP_TOKEN`)
+5.  **OpenAI API Key** (`OPENAI_API_KEY`)
 
 ### 1. Clone the Repository
 ```bash
@@ -71,6 +70,7 @@ Navigate to the server directory and install dependencies:
 ```bash
 cd server
 npm install
+# Ensures cheerio and franc, openai are installed
 ```
 
 Create a `.env` file in the `server` directory:
@@ -79,7 +79,8 @@ MONGODB_URL=mongodb://localhost:27017/neuroview
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
-HF_ACCESS_TOKEN=your_hugging_face_token
+HP_TOKEN=your_hugging_face_token
+OPENAI_API_KEY=your_openai_key
 PORT=8080
 ```
 
@@ -101,7 +102,7 @@ Create a `.env` file in the `client` directory:
 # Point to your local backend
 REACT_APP_BASE_URL=http://localhost:8080/api/v1
 
-# Required for Summarizer (URL Extraction)
+# Required for Summarizer (URL Extraction fallback)
 REACT_APP_RAPID_API_KEY=your_rapid_api_key
 ```
 

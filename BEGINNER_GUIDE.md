@@ -438,67 +438,55 @@ hf.textToImage({
 
 ---
 
-### 🚀 RapidAPI - API Marketplace
+### 🚀 OpenAI - Image Generation Intelligence
 
 **What is it?**
-RapidAPI is like the **App Store, but for APIs**. It's a marketplace where:
-- Developers publish their APIs
-- You can subscribe to use them
-- One account, one API key, access to thousands of services
+OpenAI is the world leader in Generative AI. We use their **DALL-E 3** (or 2) model foundation.
 
 **Why do we use it?**
+Instead of struggling to run massive image models on your local laptop (which requires expensive GPUs), we send your prompt to OpenAI's supercomputers.
+1. You type "A futuristic city in neon".
+2. We send this to OpenAI (`dalleRoutes.js`).
+3. They return a stunning, high-definition image in seconds.
+4. We save it to your collection.
 
-Building a text summarizer from scratch would require:
-- ❌ Training your own AI model
-- ❌ Understanding natural language processing
-- ❌ Maintaining servers
-- ❌ Handling different languages
-
-Instead, RapidAPI gives you:
-- ✅ Ready-made summarization/translation APIs
-- ✅ Just send text, get back summary
-- ✅ No AI expertise needed
-- ✅ One key for multiple services
-
-**Real-World Analogy:**
-- **Building your own** = Opening your own restaurant (expensive, complex)
-- **Using RapidAPI** = Using Uber Eats (access to many restaurants with one app)
-
-**In NeuroView, we use two RapidAPI services:**
-
-#### 1. Article Extractor and Summarizer
+**In NeuroView:**
 ```javascript
-// What it does:
-Input: "https://example.com/long-article"
-Output: "This article discusses... [short summary]"
-
-// How it works:
-1. Fetches the article from URL
-2. Extracts main text (removes ads, menus)
-3. Uses AI to identify key points
-4. Returns concise summary
+const response = await openai.images.generate({ prompt: "..." });
 ```
 
-#### 2. Text Summarize Pro
-```javascript
-// What it does:
-Input: "Long paragraph of text..."
-Output: "Short summary..."
+---
 
-// Also handles translation:
-Input: "Hello world" + language: "Spanish"
-Output: "Hola mundo"
-```
+### 🧠 Local Backend Intelligence - Summarization & Translation
+
+**What is it?**
+Unlike many apps that rely on expensive 3rd-party APIs for everything, NeuroView is **smart**. We built our own powerful intelligence engine inside the Node.js backend (`summaryRoutes.js`).
+
+**How it works:**
+1.  **Intelligent Scraping (`Cheerio`)**:
+    When you paste a URL, our server acts like a human reader. It visits the page, ignores the ads, popups, and menus, and extracts *only* the article text.
+    
+2.  **Language Detection (`Franc`)**:
+    The system reads the text and automatically figures out the language (e.g., "This looks like French/fr_FR").
+
+3.  **Neural Translation (`Hugging Face mBART`)**:
+    We use the specialized `mBART-50` model via Hugging Face Inference to translate between 50+ languages with high accuracy.
+
+**Why this is better:**
+- **Control**: We control exactly how text is cleaned and processed.
+- **Privacy**: Text is processed by our own logic before being sent to the AI model.
+- **Flexibility**: We can tweak the "Scraper" to handle different sites better (like we did for Wikipedia!).
 
 ---
 
 ### 📊 Comparison Table
 
-| Service | What It Does | Why We Need It | Cost |
-|---------|-------------|----------------|------|
-| **Cloudinary** | Stores images | MongoDB can't handle large files efficiently | Free tier: 25GB storage |
-| **Hugging Face** | Runs AI image models | We don't have GPUs to run AI locally | Free tier: Limited requests |
-| **RapidAPI** | Provides text AI services | Easier than building our own | Free tier: Limited calls |
+| Service | What It Does | Why We Need It |
+|---------|-------------|----------------|
+| **Cloudinary** | Stores images | MongoDB can't handle large files efficiently |
+| **OpenAI** | Generates Images | State-of-the-art DALL-E models |
+| **Local Node.js** | Scrapes & Processes Text | Custom, intelligent, cost-effective control |
+| **Hugging Face** | Text AI Models | Powerful Translation & Summarization |
 
 ---
 
@@ -511,10 +499,9 @@ Technically yes, but:
 | Task | Local | Cloud (Current) |
 |------|-------|-----------------|
 | **Image Storage** | 100 images = 500MB on your hard drive | Unlimited on Cloudinary |
-| **AI Image Gen** | Need $2000 GPU + 10GB disk space | Just API call |
-| **Summarization** | Need to train/download models | Just API call |
+| **Image Generation** | Need $2000 GPU + 10GB disk space | Fast OpenAI API call |
+| **Translation** | Need 5GB+ RAM for models | Hugging Face API |
 | **Speed** | Slow (CPU processing) | Fast (dedicated servers) |
-| **Maintenance** | You manage everything | They handle updates |
 
 ---
 
@@ -526,19 +513,19 @@ USER ACTION: "Generate image of a sunset"
 ┌─────────────────────────────────────────────┐
 │  YOUR COMPUTER (Frontend + Backend)         │
 │  1. Receives prompt                          │
-│  2. Sends to Hugging Face API →             │
+│  2. Sends to OpenAI API →                   │
 └─────────────────────────────────────────────┘
                     ↓
 ┌─────────────────────────────────────────────┐
-│  HUGGING FACE SERVERS                        │
-│  3. Runs Stable Diffusion model              │
+│  OPENAI SERVERS                              │
+│  3. Runs DALL-E model                        │
 │  4. Generates image                          │
 │  5. Sends back image data ←                  │
 └─────────────────────────────────────────────┘
                     ↓
 ┌─────────────────────────────────────────────┐
 │  YOUR COMPUTER (Backend)                     │
-│  6. Receives image                           │
+│  6. Receives image from OpenAI               │
 │  7. Uploads to Cloudinary →                  │
 └─────────────────────────────────────────────┘
                     ↓
@@ -563,12 +550,12 @@ USER ACTION: "Generate image of a sunset"
 
 ### 🎯 Quick Summary
 
-- **Cloudinary** = Professional image hosting (like Imgur or Google Photos for apps)
-- **Hugging Face** = Rent powerful AI models by the minute (like renting a supercomputer)
-- **RapidAPI** = One-stop shop for various AI services (like a mall of APIs)
+- **Cloudinary** = Professional image hosting.
+- **OpenAI** = The artist (Generates images).
+- **Node.js + Cheerio** = The reader (Scrapes & Cleans text).
+- **Hugging Face** = The translator (AI Text Models).
 
-**Why use them?** Because building these from scratch would take years and cost thousands of dollars. These services let you build professional apps in days! 🚀
-
+This modern "Composable Architecture" gives you the power of a tech giant's stack on your laptop! 🚀
 
 ---
 
@@ -585,9 +572,9 @@ USER ACTION: "Generate image of a sunset"
 | **Frontend (React)** | Your browser (localhost:5173) | Local |
 | **Backend (Express)** | Your computer (localhost:8080) | Local |
 | **MongoDB** | Your computer (MongoDB Compass) | Local |
-| **AI Image Generation** | Hugging Face servers | Cloud |
+| **AI Image Gen** | OpenAI Servers | Cloud |
 | **Generated Images** | Cloudinary servers | **Cloud** ✅ |
-| **Text Summarization** | RapidAPI servers | Cloud |
+| **Text AI** | Hugging Face Servers | Cloud |
 
 ### What Happens When You Generate an Image
 
