@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import Card from '../components/Card'
 import FormField from '../components/FormField'
 import FilterBar from '../components/FilterBar'
 import Loader from '../components/Loader'
+import SkeletonCard from '../components/SkeletonCard'
 import { toast } from 'react-hot-toast'
-import { FiGrid, FiBookmark, FiZap, FiMaximize2, FiX } from 'react-icons/fi'; // Removed FiFilter since it's in FilterBar
+import { FiGrid, FiBookmark, FiZap, FiMaximize2, FiX } from 'react-icons/fi';
+import { useAnimatedCounter, useScrollReveal } from '../hooks/useAnimations';
 
 import { useAuth } from '../contexts/AuthContext';
 
@@ -39,8 +41,21 @@ const Home = () => {
 
   const [lightboxImage, setLightboxImage] = useState(null);
 
+  // Parallax Scroll State
+  const heroRef = useRef(null);
+  const [scrollY, setScrollY] = useState(0);
+
   const BASE_URL = process.env.REACT_APP_BASE_URL
   const POST_DATA_API = BASE_URL + "/post"
+
+  // Parallax Effect
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrollY(window.scrollY);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Debouce Search Text
   useEffect(() => {
@@ -95,7 +110,6 @@ const Home = () => {
   }, [debouncedSearchText, filterModel, filterColor, activeTab]);
 
   // Welcome Alert (Run once per session)
-  // Welcome Alert (Run once per session)
   useEffect(() => {
     const hasWelcomed = sessionStorage.getItem('hasWelcomed');
     if (!hasWelcomed) {
@@ -131,6 +145,9 @@ const Home = () => {
 
   const displayData = getDisplayData();
 
+  // Animated Counter for Stats
+  const animatedPostCount = useAnimatedCounter(allPosts?.length || 0, 1500, !!allPosts);
+
   return (
     <section className="max-w-7xl mx-auto mt-4 mb-20 relative">
 
@@ -144,19 +161,26 @@ const Home = () => {
         </div>
       )}
 
-      {/* Hero & Dashboard */}
-      <div className="text-center mb-10 animate-fade-in-up">
+      {/* Hero & Dashboard with Parallax */}
+      <div
+        ref={heroRef}
+        className="text-center mb-10 animate-fade-in-up"
+        style={{ transform: `translateY(${scrollY * 0.2}px)` }} // Parallax Effect
+      >
         <h1 className="heading-hero text-[40px] sm:text-[60px] leading-[0.9] mb-6">
           Summarize the World. <br className="hidden sm:block" /> <span className="text-gradient-minimal">Visualize Your Dreams.</span>
         </h1>
-        <p className="text-zinc-400 text-[18px] max-w-[600px] mx-auto delay-100 leading-relaxed font-light mb-8">
+        <p
+          className="text-zinc-400 text-[18px] max-w-[600px] mx-auto delay-100 leading-relaxed font-light mb-8"
+          style={{ transform: `translateY(${scrollY * 0.1}px)` }} // Slower parallax for subtext
+        >
           The ultimate tool for students and creators. Turn text into insights and ideas into art.
         </p>
 
         {/* Stats Dashboard */}
         <div className="flex justify-center gap-4 sm:gap-12 flex-wrap">
           <div className="flex flex-col items-center">
-            <span className="text-2xl font-bold text-white">{allPosts?.length || 0}</span>
+            <span className="text-2xl font-bold text-white tabular-nums">{animatedPostCount}</span>
             <span className="text-xs text-zinc-500 uppercase tracking-widest">Total Posts</span>
           </div>
           <div className="flex flex-col items-center">
@@ -180,8 +204,9 @@ const Home = () => {
 
       <div className="mt-10">
         {loading ? (
-          <div className="flex justify-center items-center">
-            <Loader />
+          // Premium Skeleton Shimmer Loading
+          <div className="grid lg:grid-cols-4 sm:grid-cols-3 xs:grid-cols-2 grid-cols-1 gap-4">
+            <SkeletonCard count={8} />
           </div>
         ) : (
           <>

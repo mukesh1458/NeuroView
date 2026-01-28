@@ -36,16 +36,28 @@
 *   **📂 Mood Boards (Collections)**: Organize your favorite inspirations into curated, private or public boards.
 *   **👤 User Profiles**: A dedicated space to manage your Creations, Remixes, and Collections.
 
+### 5. **Premium "Gloss Morph" UI/UX (v2.0)**
+*   **🎴 Holographic 3D Tilt Cards**: Cards respond to mouse position with 3D rotation and dynamic glare.
+*   **✨ Glass Card Borders**: Animated gradient glow that shimmers cyan → purple → pink on hover.
+*   **🎉 Confetti Burst**: Success celebrations with particle confetti on image generation.
+*   **🔢 Animated Counter**: Stats count up from 0 for a "live dashboard" feel.
+*   **💀 Skeleton Shimmer**: Premium loading placeholders instead of spinners.
+*   **🖱️ Custom Cursor**: Glowing orb that follows the mouse and expands on interactive elements.
+*   **🌊 Parallax Scroll**: Hero elements move at different speeds for cinematic depth.
+*   **🎙️ Voice Input (STT)**: Speak your prompts with a pulsing microphone button.
+*   **😮‍💨 Breathing UI**: Subtle pulse animation on static elements like the logo.
+
 ---
 
 ## 🛠️ Technology Stack
 
-*   **Frontend**: React.js (Vite), Tailwind CSS, Framer Motion, ColorThief (Analysis), html2canvas.
+*   **Frontend**: React.js, Tailwind CSS, Custom Animation Hooks, ColorThief (Analysis), html2canvas.
 *   **Backend**: Node.js, Express.js, Cheerio (Scraping), Franc (Language Detection).
 *   **Database**: MongoDB (Schemaless flexibility for Art & Text).
 *   **Security**: BCrypt (Hashing), JWT (Sessions), Nodemailer (Verification).
 *   **Cloud Storage**: Cloudinary (Image hosting).
-*   **AI Integration**: Hugging Face (Images, Translation, Summarization).
+*   **AI Integration**: Hugging Face (Images, Translation, Summarization), Google Gemini (Summarization).
+*   **UI/UX**: TiltCard, CustomCursor, Confetti, SkeletonCard, MagneticButton components.
 
 ---
 

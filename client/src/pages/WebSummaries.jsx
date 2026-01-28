@@ -130,11 +130,12 @@ const WebSummaries = () => {
                     <>
                         {allPosts?.length > 0 ? (
                             <div className="grid lg:grid-cols-3 sm:grid-cols-2 xs:grid-cols-1 gap-6 w-full">
-                                {allPosts.map((post) => (
+                                {allPosts.map((post, index) => (
                                     <div
                                         key={post._id}
                                         onClick={() => setSelectedPost(post)}
-                                        className="glass-panel p-0 rounded-2xl overflow-hidden flex flex-col border border-white/5 hover:border-white/10 transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-purple-500/10 h-full group cursor-pointer"
+                                        className="glass-panel glass-border p-0 rounded-2xl overflow-hidden flex flex-col border border-white/5 hover:border-white/10 transition-all hover:-translate-y-1 hover:shadow-2xl hover:shadow-purple-500/10 h-full group cursor-pointer scroll-reveal visible"
+                                        style={{ animationDelay: `${index * 50}ms` }}
                                     >
 
                                         {/* Card Header */}
@@ -181,21 +182,21 @@ const WebSummaries = () => {
                                             <div className="flex gap-2">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleSpeak(post.content, post._id); }}
-                                                    className={`p-2 rounded-lg transition-all ${speakingPostId === post._id ? 'text-red-400 bg-red-400/10' : 'text-zinc-400 hover:text-pink-400 hover:bg-pink-400/10'}`}
+                                                    className={`p-2 rounded-lg transition-all ripple-effect ${speakingPostId === post._id ? 'text-red-400 bg-red-400/10' : 'text-zinc-400 hover:text-pink-400 hover:bg-pink-400/10 hover-glow'}`}
                                                     title={speakingPostId === post._id ? "Stop Speaking" : "Listen (Text-to-Speech)"}
                                                 >
                                                     {speakingPostId === post._id ? <FiStopCircle size={16} className="animate-pulse" /> : <FiVolume2 size={16} />}
                                                 </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleCopy(post.content); }}
-                                                    className="p-2 text-zinc-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+                                                    className="p-2 text-zinc-400 hover:text-white hover:bg-white/10 rounded-lg transition-all ripple-effect hover-glow"
                                                     title="Copy Text"
                                                 >
                                                     <FiCopy size={16} />
                                                 </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleDownloadPDF(post); }}
-                                                    className="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-all"
+                                                    className="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-all ripple-effect hover-glow"
                                                     title="Download PDF"
                                                 >
                                                     <FiDownload size={16} />

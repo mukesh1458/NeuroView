@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 
 import CollectionModal from './CollectionModal';
 import RemixTreeModal from './RemixTreeModal';
+import TiltCard from './TiltCard';
 
 const Card = ({ _id, name, prompt, model, photo, openLightbox, parentId, colors, user, authUser }) => {
   const navigate = useNavigate();
@@ -19,7 +20,6 @@ const Card = ({ _id, name, prompt, model, photo, openLightbox, parentId, colors,
   // Safe helpers
   const safeName = name || "Anonymous";
   const safeInitial = safeName.length > 0 ? safeName[0].toUpperCase() : "?";
-  const safeColors = Array.isArray(colors) ? colors : [];
 
   const handleBookmark = (e) => {
     e.stopPropagation();
@@ -72,99 +72,98 @@ const Card = ({ _id, name, prompt, model, photo, openLightbox, parentId, colors,
   };
 
   return (
-    <div className="group relative rounded-xl hover:shadow-xl hover:shadow-cardhover card w-full h-auto object-cover rounded-xl transition-all duration-300">
-      <img
-        className="w-full h-auto object-cover rounded-xl"
-        src={photo}
-        alt={prompt}
-        onClick={() => openLightbox && openLightbox(photo)}
-      />
+    <TiltCard className="rounded-xl bg-[#101010] shadow-[0_10px_30px_rgba(0,0,0,0.5)] h-auto glass-border">
+      <div className="group relative rounded-xl h-auto overflow-hidden">
+        <img
+          className="w-full h-auto object-cover rounded-xl shadow-lg"
+          src={photo}
+          alt={prompt}
+          loading="lazy"
+          onClick={() => openLightbox && openLightbox(photo)}
+          style={{ transform: 'translateZ(20px)' }} // Push image slightly forward
+        />
 
-      {/* Top Right: Genealogy Button (Pop out) */}
-      <div className="absolute top-3 right-3 hidden group-hover:flex flex-col gap-2 animate-fade-in-up z-20">
-        {/* Genealogy Tree */}
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); setShowTreeModal(true); }}
-          className="w-10 h-10 bg-white/10 backdrop-blur-xl border border-white/20 rounded-full flex items-center justify-center hover:bg-cyan-500/20 hover:border-cyan-400 hover:text-cyan-400 transition-all shadow-[0_8px_32px_0_rgba(31,38,135,0.37)] hover:scale-110 hover:shadow-cyan-500/50"
-          title="View Remix Family"
+        {/* Top Right: Genealogy Button (Pop out) */}
+        <div
+          className="absolute top-3 right-3 hidden group-hover:flex flex-col gap-2 animate-fade-in-up z-20"
+          style={{ transform: 'translateZ(50px)' }} // Float buttons above
         >
-          <FiZap className="w-5 h-5 text-white/90" />
-        </button>
-      </div>
-
-      {/* Bottom Action Bar (Insta-style Glossy) */}
-      <div className="hidden group-hover:flex flex-col max-h-[94.5%] absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent m-2 p-3 rounded-xl border border-white/10 animate-slide-in-up z-20 backdrop-blur-xl shadow-lg">
-
-        {/* User Info & Actions Row */}
-        <div className="flex justify-between items-center w-full">
-
-          {/* User Profile */}
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-full object-cover bg-gradient-to-br from-white/10 to-white/5 border border-white/20 backdrop-blur-sm flex justify-center items-center text-white text-xs font-bold shadow-inner">
-              {safeInitial}
-            </div>
-            <div className="flex flex-col">
-              <p className="text-white text-sm font-bold leading-none drop-shadow-md tracking-wide">{safeName}</p>
-              <span className="text-[10px] text-zinc-300 font-medium opacity-80">@{safeName.toLowerCase().replace(/\s/g, '')}</span>
-            </div>
-          </div>
-
-          {/* Action Icons */}
-          <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
-            {/* Bookmark */}
-            <button type="button" onClick={handleBookmark} className="hover:scale-110 transition-transform p-1" title="Save">
-              <FiBookmark className="w-5 h-5 text-zinc-300 hover:text-purple-400 transition-colors drop-shadow-sm" />
-            </button>
-
-            {/* Remix */}
-            <button type="button" onClick={handleRemix} className="hover:scale-110 transition-transform p-1" title="Remix This">
-              <FiZap className="w-5 h-5 text-zinc-300 hover:text-yellow-400 transition-colors drop-shadow-sm" />
-            </button>
-
-            {/* Share */}
-            <button type="button" onClick={handleShare} className="hover:scale-110 transition-transform p-1" title="Share">
-              <FiShare2 className="w-5 h-5 text-zinc-300 hover:text-green-400 transition-colors drop-shadow-sm" />
-            </button>
-
-            {/* Download */}
-            <button type="button" onClick={(e) => { e.stopPropagation(); downloadImage(_id, photo); }} className="hover:scale-110 transition-transform p-1" title="Download">
-              <img src={download} alt="download" className="w-5 h-5 object-contain invert opacity-70 hover:opacity-100 transition-opacity drop-shadow-sm" />
-            </button>
-
-            {/* Delete (Owner only) */}
-            {authUser && user === authUser.id && (
-              <button type="button" onClick={handleDelete} className="hover:scale-110 transition-transform p-1" title="Delete">
-                <FiTrash2 className="w-4 h-4 text-red-400/80 hover:text-red-500 transition-colors drop-shadow-sm" />
-              </button>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setShowTreeModal(true); }}
+            className="w-10 h-10 bg-black/40 backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center hover:bg-cyan-500/20 hover:border-cyan-400 hover:text-cyan-400 transition-all shadow-lg hover:scale-110"
+            title="View Remix Family"
+          >
+            <FiZap className="w-5 h-5 text-white/90" />
+          </button>
         </div>
 
-        {/* Prompt Preview (Mini) */}
-        {prompt && (
-          <div className="mt-3 bg-black/20 rounded-lg p-2 border border-white/5 backdrop-blur-sm">
-            <p className="text-zinc-200 text-xs line-clamp-2 leading-relaxed font-light">
-              {prompt}
-            </p>
-          </div>
-        )}
-      </div>
+        {/* Bottom Action Bar */}
+        <div
+          className="hidden group-hover:flex flex-col max-h-[94.5%] absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-xl m-2 p-3 rounded-xl border border-white/10 animate-slide-in-up z-20 shadow-2xl"
+          style={{ transform: 'translateZ(40px)' }} // Float panel above image
+        >
 
-      <CollectionModal
-        isOpen={showCollectionModal}
-        onClose={() => setShowCollectionModal(false)}
-        postId={_id}
-        photo={photo}
-        user={authUser}
-      />
-      <RemixTreeModal
-        isOpen={showTreeModal}
-        onClose={() => setShowTreeModal(false)}
-        postId={_id}
-        currentPostPhoto={photo}
-      />
-    </div>
+          {/* User Info & Actions Row */}
+          <div className="flex justify-between items-center w-full">
+
+            {/* User Profile */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex justify-center items-center text-white text-[10px] font-bold shadow-lg border border-white/20">
+                {safeInitial}
+              </div>
+              <div className="flex flex-col">
+                <p className="text-white text-xs font-bold leading-none tracking-wide">{safeName}</p>
+              </div>
+            </div>
+
+            {/* Action Icons */}
+            <div className="flex items-center gap-1.5">
+              <button type="button" onClick={handleBookmark} className="p-1.5 hover:bg-white/10 rounded-full transition-colors" title="Save">
+                <FiBookmark className="w-4 h-4 text-zinc-300 hover:text-purple-400 transition-colors" />
+              </button>
+
+              <button type="button" onClick={handleRemix} className="p-1.5 hover:bg-white/10 rounded-full transition-colors" title="Remix This">
+                <FiZap className="w-4 h-4 text-zinc-300 hover:text-yellow-400 transition-colors" />
+              </button>
+
+              <button type="button" onClick={(e) => { e.stopPropagation(); downloadImage(_id, photo); }} className="p-1.5 hover:bg-white/10 rounded-full transition-colors" title="Download">
+                <img src={download} alt="download" className="w-4 h-4 object-contain invert opacity-70 hover:opacity-100 transition-opacity" />
+              </button>
+
+              {authUser && user === authUser.id && (
+                <button type="button" onClick={handleDelete} className="p-1.5 hover:bg-white/10 rounded-full transition-colors" title="Delete">
+                  <FiTrash2 className="w-3.5 h-3.5 text-red-400/80 hover:text-red-500 transition-colors" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Prompt Preview (Mini) */}
+          {prompt && (
+            <div className="mt-2.5">
+              <p className="text-zinc-300 text-[10px] line-clamp-2 leading-relaxed font-light opacity-80 text-reveal">
+                {prompt}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <CollectionModal
+          isOpen={showCollectionModal}
+          onClose={() => setShowCollectionModal(false)}
+          postId={_id}
+          photo={photo}
+          user={authUser}
+        />
+        <RemixTreeModal
+          isOpen={showTreeModal}
+          onClose={() => setShowTreeModal(false)}
+          postId={_id}
+          currentPostPhoto={photo}
+        />
+      </div>
+    </TiltCard>
   )
 }
 

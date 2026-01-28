@@ -10,6 +10,8 @@ import { FiZap, FiDownload, FiRefreshCw, FiSettings, FiTrash2, FiShare2, FiEdit3
 import ColorThief from 'colorthief';
 import CreatePageDropDown from '../components/CreatePageDropDown';
 import ImageEditorModal from '../components/ImageEditorModal';
+import useSpeechToText from '../hooks/useSpeechToText'; // Import hook
+import Confetti from '../components/Confetti';
 
 const STYLE_PRESETS = [
   { name: 'Realistic', prompt: 'photorealistic, 8k, highly detailed, cinematic lighting, photography' },
@@ -28,6 +30,9 @@ const CreatePost = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Voice Command Hook
+  const { isListening, transcript, startListening, stopListening, hasSupport } = useSpeechToText();
+
   const [form, setForm] = useState({
     name: '',
     prompt: '',
@@ -35,6 +40,16 @@ const CreatePost = () => {
     model: 'stable-diffusion-2-1',
     blobObj: ''
   })
+
+  // Voice Effect: Append transcript to prompt
+  useEffect(() => {
+    if (transcript) {
+      setForm(prev => {
+        const newPrompt = prev.prompt ? `${prev.prompt} ${transcript}` : transcript;
+        return { ...prev, prompt: newPrompt };
+      });
+    }
+  }, [transcript]);
 
   const [negativePrompt, setNegativePrompt] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -50,7 +65,7 @@ const CreatePost = () => {
   const [filters, setFilters] = useState({ brightness: 100, contrast: 100, saturation: 100, sepia: 0, blur: 0, hueRotate: 0 });
   const [showFilters, setShowFilters] = useState(false);
   const [showEditorModal, setShowEditorModal] = useState(false);
-
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const resetFilters = () => setFilters({ brightness: 100, contrast: 100, saturation: 100, sepia: 0, blur: 0, hueRotate: 0 });
 
@@ -87,6 +102,7 @@ const CreatePost = () => {
       link.click();
     };
   };
+
 
   // Remix Logic
   useEffect(() => {
@@ -183,6 +199,10 @@ const CreatePost = () => {
         setSessionHistory(prev => [imageUrl, ...prev].slice(0, 5));
         resetFilters();
 
+        // Trigger Success Confetti! 🎉
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 2000);
+
         // Extract Colors
         const img = new Image();
         img.crossOrigin = "Anonymous";
@@ -264,6 +284,9 @@ const CreatePost = () => {
 
   return (
     <section className="max-w-7xl mx-auto animate-fade-in-up pb-12">
+      {/* Success Confetti Burst */}
+      <Confetti trigger={showConfetti} />
+
       <div className='mb-10 text-center'>
         <h1 className="heading-hero text-[32px] sm:text-[48px] leading-tight">Visualize <span className="text-gradient-minimal">Your Dreams</span></h1>
         <p className="mt-2 text-zinc-400 text-[16px] max-w-[600px] mx-auto font-light">
@@ -299,6 +322,10 @@ const CreatePost = () => {
                 handleChange={handleChange}
                 isSurpriseMe
                 handleSurpriseMe={handleSurpriseMe}
+                // Voice Props
+                isVoiceEnabled={hasSupport}
+                handleVoiceInput={isListening ? stopListening : startListening}
+                isListening={isListening}
               />
               <button
                 type="button"
@@ -417,9 +444,8 @@ const CreatePost = () => {
                       onClick={() => setShowEditorModal(true)}
                       className="text-xs bg-white/10 backdrop-blur-md px-3 py-2 rounded-lg text-white hover:bg-white/20 transition-colors border border-white/10 flex items-center gap-2 font-medium"
                     >
-                      <FiEdit3 size={14} /> Edit Image
+                      <FiEdit3 size={14} /> Edit
                     </button>
-
                     <button
                       type="button"
                       onClick={handleDownload}
@@ -455,16 +481,18 @@ const CreatePost = () => {
       </div>
 
       {/* Image Editor Modal */}
-      {showEditorModal && form.photo && (
-        <ImageEditorModal
-          imageUrl={form.photo}
-          onSave={(editedUrl) => {
-            setForm(prev => ({ ...prev, photo: editedUrl }));
-            setShowEditorModal(false);
-          }}
-          onClose={() => setShowEditorModal(false)}
-        />
-      )}
+      {
+        showEditorModal && form.photo && (
+          <ImageEditorModal
+            imageUrl={form.photo}
+            onSave={(editedUrl) => {
+              setForm(prev => ({ ...prev, photo: editedUrl }));
+              setShowEditorModal(false);
+            }}
+            onClose={() => setShowEditorModal(false)}
+          />
+        )
+      }
 
     </section >
   )
