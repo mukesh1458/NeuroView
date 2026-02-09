@@ -69,6 +69,8 @@ const App = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
+
+
         {/* Global Custom Cursor */}
         <CustomCursor />
 

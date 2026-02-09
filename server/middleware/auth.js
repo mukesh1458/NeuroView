@@ -12,6 +12,7 @@ const verifyToken = (req, res, next) => {
         req.user = verified;
         next();
     } catch (error) {
+        console.log("Auth Middleware Error:", error.message);
         res.status(400).json({ success: false, message: "Invalid Token" });
     }
 };

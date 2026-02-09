@@ -294,41 +294,58 @@
    PREMIUM MICRO-INTERACTIONS
    ============================================ */
 
-/* 16. Custom Cursor */
-.custom-cursor {
-  width: 20px;
-  height: 20px;
-  border: 2px solid rgba(34, 211, 238, 0.8);
+/* 16. Custom Cursor (Physics Based) */
+.custom-cursor-dot {
+  width: 8px;
+  height: 8px;
+  background-color: white;
   border-radius: 50%;
   position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 10000;
+  mix-blend-mode: difference;
+  /* Centering the dot on the coordinate */
+  margin-left: -4px;
+  margin-top: -4px;
+}
+
+.custom-cursor-ring {
+  width: 40px;
+  height: 40px;
+  border: 1.5px solid rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  position: fixed;
+  top: 0;
+  left: 0;
   pointer-events: none;
   z-index: 9999;
   mix-blend-mode: difference;
-  transition: transform 0.15s ease-out, width 0.2s, height 0.2s, border-color 0.2s;
+  /* Centering the ring on the coordinate */
+  margin-left: -20px;
+  margin-top: -20px;
+
+  transition: width 0.3s, height 0.3s, border-color 0.3s;
+  will-change: transform;
 }
 
-.custom-cursor.hovering {
-  width: 40px;
-  height: 40px;
-  border-color: rgba(192, 132, 252, 0.8);
-  background: rgba(192, 132, 252, 0.1);
+.custom-cursor-ring.hovering {
+  border-color: rgba(34, 211, 238, 1);
+  /* Cyan glow on hover */
+  background-color: rgba(255, 255, 255, 0.1);
+  width: 60px;
+  height: 60px;
+  margin-left: -30px;
+  margin-top: -30px;
 }
 
-.custom-cursor-dot {
-  width: 6px;
-  height: 6px;
-  background: white;
-  border-radius: 50%;
-  position: fixed;
-  pointer-events: none;
-  z-index: 10000;
-  transition: transform 0.05s;
-}
-
-/* Hide default cursor on interactive elements */
+/* Hide default cursor */
+body.custom-cursor-enabled,
 body.custom-cursor-enabled * {
   cursor: none !important;
 }
+
 
 /* 17. Hover Glow Aura */
 .hover-glow {

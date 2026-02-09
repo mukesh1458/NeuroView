@@ -55,7 +55,8 @@ import verifyToken from '../middleware/auth.js';
 router.post("/post", verifyToken, async (req, res) => {
     try {
         const { name, prompt, model, parentId, colors } = req.body;
-        console.log("Creating Post:", { name, prompt, model, parentId });
+        console.log("Creating Post - Request Body:", { name, prompt, model, parentId });
+        console.log("Creating Post - Files:", req.files ? Object.keys(req.files) : "No files");
 
         const photo = req.files.photoFile;
         const photoURL = await cloudinary.uploader.upload(photo.tempFilePath, { folder: process.env.FOLDER_NAME, resource_type: "auto" });

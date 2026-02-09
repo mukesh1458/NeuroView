@@ -73,9 +73,9 @@ const Card = ({ _id, name, prompt, model, photo, openLightbox, parentId, colors,
 
   return (
     <TiltCard className="rounded-xl bg-[#101010] shadow-[0_10px_30px_rgba(0,0,0,0.5)] h-auto glass-border">
-      <div className="group relative rounded-xl h-auto overflow-hidden">
+      <div className="group relative rounded-xl h-auto overflow-hidden" style={{ transformStyle: 'preserve-3d' }}>
         <img
-          className="w-full h-auto object-cover rounded-xl shadow-lg"
+          className="w-full h-auto object-cover rounded-xl shadow-lg cursor-pointer"
           src={photo}
           alt={prompt}
           loading="lazy"
@@ -85,7 +85,7 @@ const Card = ({ _id, name, prompt, model, photo, openLightbox, parentId, colors,
 
         {/* Top Right: Genealogy Button (Pop out) */}
         <div
-          className="absolute top-3 right-3 hidden group-hover:flex flex-col gap-2 animate-fade-in-up z-20"
+          className="absolute top-3 right-3 hidden group-hover:flex flex-col gap-2 animate-fade-in-up z-[100]"
           style={{ transform: 'translateZ(50px)' }} // Float buttons above
         >
           <button
@@ -100,7 +100,7 @@ const Card = ({ _id, name, prompt, model, photo, openLightbox, parentId, colors,
 
         {/* Bottom Action Bar */}
         <div
-          className="hidden group-hover:flex flex-col max-h-[94.5%] absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-xl m-2 p-3 rounded-xl border border-white/10 animate-slide-in-up z-20 shadow-2xl"
+          className="hidden group-hover:flex flex-col max-h-[94.5%] absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-xl m-2 p-3 rounded-xl border border-white/10 animate-slide-in-up z-[100] shadow-2xl"
           style={{ transform: 'translateZ(40px)' }} // Float panel above image
         >
 
