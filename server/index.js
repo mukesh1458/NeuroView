@@ -29,7 +29,9 @@ app.use(
 )
 
 import collectionRoutes from './routes/collectionRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 
+app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/collections', collectionRoutes); // Register Collection Routes
 

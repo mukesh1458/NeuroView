@@ -2,14 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
+import EditProfileModal from '../components/EditProfileModal';
 import { FiGrid, FiLayers, FiSettings, FiUser, FiZap } from 'react-icons/fi';
 
 const Profile = () => {
-    const { user, logout } = useAuth();
-    const [activeTab, setActiveTab] = useState('created'); // 'created' | 'collections'
+    const { user, logout, loading: authLoading } = useAuth(); // Get setUser from context if available, or we update local state
+    // Actually useAuth doesn't expose setUser directly usually, but we can rely on window reload or just local state for instant feedback
+    // In AuthContext we see setUser is internal. 
+    // Best practice: The modal updates localStorage, and we might need to reload or refetch. 
+    // However, for this snippet, let's just update local display state if we want instant feedback without reload, 
+    // OR we can assume AuthContext listens to Storage (it doesn't usually). 
+    // Let's pass a handler to the modal that updates the user object in localStorage AND triggers a window reload or re-fetch?
+    // EASIER: The modal updates localStorage. We can just modify the 'user' object in state here if we want? 
+    // Wait, 'user' comes from useAuth. If we update localStorage, useAuth won't know unless we reload.
+    // Let's reload to be safe and simple, OR ask useAuth to expose a refresh function.
+    // For now, let's just rely on the Modal updating the "user" in localStorage, and we can force a window.location.reload() for simplicity.
+
+    // BETTER: Let's make a local copy of user to display updates immediately? No, 'user' is from context.
+    // Let's just use window.location.reload() in the onUpdate callback for now to ensure Context gets fresh data.
+
+    const [activeTab, setActiveTab] = useState('created');
     const [posts, setPosts] = useState([]);
     const [collections, setCollections] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
     const BASE_URL = process.env.REACT_APP_BASE_URL;
 
     useEffect(() => {
@@ -22,18 +39,10 @@ const Profile = () => {
     const fetchUserPosts = async () => {
         setLoading(true);
         try {
-            // In a real app, we'd have a specific endpoint /post/user/:id
-            // For now, we'll filter the main feed or assume the previously fetched 'allPosts' approach 
-            // But let's verify if we need a new route. The current GET /post returns all. 
-            // Let's filter client side for MVP or add a query param if needed. 
-            // Ideally: GET /api/v1/post?user=ID
-
             const res = await fetch(`${BASE_URL}/post`);
             const data = await res.json();
             if (data.success) {
-                // Filter by user ID (assuming post.user matches user.id or user.username)
-                // Since we stored user object ID in post.user, we compare.
-                const userPosts = data.data.filter(post => post.user === user.id || post.name === user.username);
+                const userPosts = data.data.filter(post => post.user === user._id || post.name === user.username);
                 setPosts(userPosts.reverse());
             }
         } catch (error) {
@@ -59,6 +68,12 @@ const Profile = () => {
         }
     };
 
+    const handleProfileUpdate = (updatedUser) => {
+        // Simple reload to refresh context
+        window.location.reload();
+    };
+
+    if (authLoading) return <div className="flex justify-center mt-20"><Loader /></div>;
     if (!user) return <div className="text-white text-center mt-20">Please login to view profile.</div>;
 
     return (
@@ -66,17 +81,37 @@ const Profile = () => {
 
             {/* Header */}
             <div className="flex flex-col items-center mb-12 animate-fade-in-up">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-4xl font-bold text-white mb-4 shadow-2xl ring-4 ring-white/10">
-                    {user.username[0].toUpperCase()}
+                <div className="relative">
+                    <div className="w-32 h-32 rounded-full p-1 bg-gradient-to-tr from-cyan-500 via-blue-500 to-purple-600 shadow-2xl">
+                        <div className="w-full h-full rounded-full bg-[#18181b] overflow-hidden flex items-center justify-center relative">
+                            {user.avatar ? (
+                                <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
+                            ) : (
+                                <span className="text-5xl font-bold text-white">{user.username[0].toUpperCase()}</span>
+                            )}
+                        </div>
+                    </div>
+                    {/* Online Status / Premium Badge */}
+                    <div className="absolute bottom-2 right-2 bg-green-500 w-5 h-5 rounded-full border-4 border-[#09090b]"></div>
                 </div>
-                <h1 className="text-3xl font-bold text-white mb-1">{user.username}</h1>
-                <p className="text-zinc-400 text-sm mb-6">{user.email}</p>
 
-                <div className="flex gap-4">
-                    <button onClick={logout} className="px-6 py-2 rounded-full border border-white/10 text-zinc-300 hover:bg-white/5 transition-colors text-sm">
+                <h1 className="text-3xl font-bold text-white mt-4 mb-1">{user.username}</h1>
+                <p className="text-zinc-400 text-sm mb-3">{user.email}</p>
+
+                {user.bio && (
+                    <p className="text-zinc-300 text-center max-w-md mb-6 leading-relaxed italic">
+                        "{user.bio}"
+                    </p>
+                )}
+
+                <div className="flex gap-4 mt-2">
+                    <button onClick={logout} className="px-6 py-2 rounded-full border border-white/10 text-zinc-300 hover:bg-white/5 transition-colors text-sm font-medium">
                         Sign Out
                     </button>
-                    <button className="px-6 py-2 rounded-full bg-white text-black font-bold hover:bg-zinc-200 transition-colors text-sm">
+                    <button
+                        onClick={() => setIsEditModalOpen(true)}
+                        className="px-6 py-2 rounded-full bg-white text-black font-bold hover:bg-zinc-200 transition-colors text-sm shadow-lg shadow-white/10"
+                    >
                         Edit Profile
                     </button>
                 </div>
@@ -154,6 +189,13 @@ const Profile = () => {
                     )}
                 </>
             )}
+
+            <EditProfileModal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                currentUser={user}
+                onUpdate={handleProfileUpdate}
+            />
 
         </section>
     );

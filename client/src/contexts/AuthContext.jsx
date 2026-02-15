@@ -76,8 +76,31 @@ export const AuthProvider = ({ children }) => {
         toast.success("Logged out successfully");
     };
 
+    const googleLogin = async (credential) => {
+        try {
+            const response = await fetch(`${BASE_URL}/auth/google`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ credential }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message);
+
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            setUser(data.user);
+            toast.success(`Welcome ${data.user.username}!`);
+            return true;
+        } catch (error) {
+            console.error(error);
+            toast.error(error.message || "Google Login Failed");
+            return false;
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+        <AuthContext.Provider value={{ user, login, register, googleLogin, logout, loading }}>
             {!loading && children}
         </AuthContext.Provider>
     );

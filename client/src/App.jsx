@@ -4,6 +4,7 @@ import { Toaster } from "react-hot-toast";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Loader from "./components/Loader";
 import CustomCursor from "./components/CustomCursor";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Lazy Load Pages
 const Home = lazy(() => import("./pages/Home"));
@@ -48,20 +49,23 @@ const AuthNav = () => {
       {/* User Actions Group */}
       {user ? (
         <div className="flex items-center gap-3 pl-2 sm:border-l border-white/10">
-          <div className="flex items-center gap-3 order-1">
-            <Link to="/profile" className="w-9 h-9 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white border border-white/20 shadow-inner ring-2 ring-black/20 hover:scale-105 transition-transform hover-glow">
-              {user.username[0].toUpperCase()}
-            </Link>
-            <button onClick={logout} className="hidden sm:block text-xs font-medium text-zinc-500 hover:text-red-400 transition-colors">Logout</button>
-          </div>
+          <Link to="/profile" className="w-9 h-9 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white border border-white/20 shadow-inner ring-2 ring-black/20 hover:scale-105 transition-transform hover-glow overflow-hidden">
+            {user.avatar ? (
+              <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              user.username[0].toUpperCase()
+            )}
+          </Link>
         </div>
+
       ) : (
         <div className="flex items-center gap-3 pl-2 sm:border-l border-white/10">
           <Link to="/login" className="px-4 py-2 text-sm font-medium text-zinc-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors hover-glow">Login</Link>
           <Link to="/register" className="px-4 py-2 text-sm font-bold text-black bg-white rounded-lg hover:bg-zinc-200 transition-colors shadow-lg shadow-white/10 hover-glow">Sign Up</Link>
         </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   )
 }
 
@@ -110,10 +114,38 @@ const App = () => {
             }>
               <Routes>
                 <Route path="/" element={<Home />} />
-                <Route path="/create-post" element={<CreatePost />} />
-                <Route path="/summarize" element={<SummarizeApp />} />
-                <Route path="/web-summaries" element={<WebSummaries />} />
-                <Route path="/profile" element={<Profile />} />
+                <Route
+                  path="/create-post"
+                  element={
+                    <ProtectedRoute>
+                      <CreatePost />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/summarize"
+                  element={
+                    <ProtectedRoute>
+                      <SummarizeApp />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/web-summaries"
+                  element={
+                    <ProtectedRoute>
+                      <WebSummaries />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
               </Routes>

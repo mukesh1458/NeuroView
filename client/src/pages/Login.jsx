@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Loader from '../components/Loader';
+import { GoogleLogin } from '@react-oauth/google';
+import { toast } from 'react-hot-toast';
 
 const Login = () => {
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [loading, setLoading] = useState(false);
-    const { login } = useAuth();
+    const { login, googleLogin } = useAuth();
     const navigate = useNavigate();
 
     const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -61,6 +63,33 @@ const Login = () => {
                     >
                         {loading ? 'Signing In...' : 'Sign In'}
                     </button>
+
+                    <div className="relative my-6">
+                        <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t border-zinc-700" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-[#18181b] px-2 text-zinc-500">Or continue with</span>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-center">
+                        <div className="overflow-hidden rounded-lg hover:shadow-cyan-500/20 hover:scale-105 transition-all duration-300">
+                            <GoogleLogin
+                                onSuccess={async (credentialResponse) => {
+                                    const success = await googleLogin(credentialResponse.credential);
+                                    if (success) navigate('/');
+                                }}
+                                onError={() => {
+                                    console.log('Login Failed');
+                                    toast.error("Google Login Failed");
+                                }}
+                                theme="filled_black"
+                                shape="pill"
+                                text="signin_with"
+                            />
+                        </div>
+                    </div>
                 </form>
 
                 <p className="mt-6 text-center text-zinc-400 text-sm">
